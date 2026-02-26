@@ -10,7 +10,7 @@ visible progress and friendly competition.
 - Level up a fighter avatar from **Novice → Elite**
 - Visual progress tracking and avatar evolution
 - Group leaderboard with rankings and badges
-- Anonymous sign-in with optional usernames
+- Anonymous sign-in with usernames
 
 ## 🧠 Core ideas
 - Motivation through gamification

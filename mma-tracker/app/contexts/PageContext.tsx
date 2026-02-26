@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 
-export type PageType = "home" | "log" | "history" | "avatar" | "ranking";
+export type PageType = "home" | "log" | "history" | "avatar" | "ranking" | "profile" | "sparring";
 
 interface PageContextType {
   currentPage: PageType;

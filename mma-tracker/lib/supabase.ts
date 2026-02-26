@@ -16,6 +16,20 @@ export interface GroupMember {
   username: string | null;
   score: number;
   badges: string[];
+  avatar_level?: "Novice" | "Intermediate" | "Seasoned" | "Elite";
+  updated_at?: string;
+}
+
+export interface SparringSession {
+  id?: string;
+  creator_id: string;
+  opponent_id?: string | null;
+  date: string;
+  time: string;
+  location: string;
+  notes?: string | null;
+  status: "open" | "accepted" | "cancelled";
+  created_at?: string;
   updated_at?: string;
 }
 

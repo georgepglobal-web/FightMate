@@ -9,6 +9,7 @@ import AuthGate from "./components/AuthGate";
 import Shoutbox from "./components/Shoutbox";
 import ChatFAB from "./components/ChatFAB";
 import MigrationBanner from "./components/MigrationBanner";
+import SparringSessions from "./components/SparringSessions";
 import { useSessionMigration } from "@/lib/hooks/useSessionMigration";
 import { analytics } from "@/lib/analytics";
 
@@ -33,6 +34,7 @@ interface MemberRanking {
   name: string;
   score: number;
   badges: string[];
+  avatarLevel?: "Novice" | "Intermediate" | "Seasoned" | "Elite";
   isCurrentUser?: boolean;
 }
 
@@ -76,6 +78,17 @@ const CLASS_LEVEL_MULTIPLIERS: Record<string, number> = {
 // Default group ID
 const DEFAULT_GROUP_ID = "global";
 
+/**
+ * Pure helper function to calculate avatar level from points
+ * Can be used synchronously throughout the component
+ */
+const calculateLevelFromPoints = (points: number): "Novice" | "Intermediate" | "Seasoned" | "Elite" => {
+  if (points >= LEVEL_THRESHOLDS.Elite.min) return "Elite";
+  if (points >= LEVEL_THRESHOLDS.Seasoned.min) return "Seasoned";
+  if (points >= LEVEL_THRESHOLDS.Intermediate.min) return "Intermediate";
+  return "Novice";
+};
+
 
 
 
@@ -90,6 +103,7 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     try {
@@ -286,6 +300,7 @@ export default function Home() {
         username: userUsername,
         score: userScore,
         badges: userBadges,
+        avatar_level: calculateLevelFromPoints(userScore),
         updated_at: new Date().toISOString(),
       };
 
@@ -337,6 +352,7 @@ export default function Home() {
           name: member.username || (member.user_id === userId ? "You" : "Anonymous Fighter"),
           score: member.score || 0,
           badges: member.badges || [],
+          avatarLevel: member.avatar_level || calculateLevelFromPoints(member.score || 0),
           isCurrentUser: member.user_id === userId,
         }));
         setGroupMembers(members);
@@ -368,20 +384,10 @@ export default function Home() {
 
     initializeAndFetch();
   }, [userId, authLoading, initializeUserInSupabase, fetchGroupMembersFromSupabase]);
-
   /**
    * Derive avatar from sessions (pure function, no side effects)
    * Supabase sessions are the single source of truth
    */
-  /**
-   * Calculate avatar level from points
-   */
-  const calculateLevelFromPoints = (points: number): Avatar["level"] => {
-    if (points >= LEVEL_THRESHOLDS.Elite.min) return "Elite";
-    if (points >= LEVEL_THRESHOLDS.Seasoned.min) return "Seasoned";
-    if (points >= LEVEL_THRESHOLDS.Intermediate.min) return "Intermediate";
-    return "Novice";
-  };
 
   /**
    * Calculate progress within level (single rounding to 25% steps)
@@ -958,6 +964,17 @@ export default function Home() {
                 <span className="text-lg">Group Ranking</span>
               </div>
             </button>
+
+            <button
+              onClick={() => setPage("sparring")}
+              className="group relative overflow-hidden bg-gradient-to-br from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-6 px-6 rounded-2xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-red-500/50 border-2 border-white/20 backdrop-blur-sm sm:col-span-2"
+            >
+              <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+              <div className="relative flex items-center justify-center gap-3">
+                <span className="text-2xl">🥊</span>
+                <span className="text-lg">Sparring Sessions</span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -1400,6 +1417,154 @@ export default function Home() {
     );
   };
 
+  const UserProfilePage = () => {
+    const [profileSessions, setProfileSessions] = useState<DbSession[]>([]);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [profileMember, setProfileMember] = useState<MemberRanking | null>(null);
+
+    useEffect(() => {
+      if (!selectedUserId) return;
+
+      // Find member in current list
+      const member = groupMembers.find(m => m.userId === selectedUserId);
+      setProfileMember(member || null);
+
+      // Fetch sessions for this user
+      const fetchUserSessions = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("sessions")
+            .select("*")
+            .eq("user_id", selectedUserId)
+            .order("date", { ascending: false });
+
+          if (error) {
+            console.error("[UserProfile] Error fetching sessions:", error);
+            setProfileSessions([]);
+          } else {
+            setProfileSessions(data || []);
+          }
+        } catch (e) {
+          console.error("[UserProfile] Error:", e);
+          setProfileSessions([]);
+        } finally {
+          setProfileLoading(false);
+        }
+      };
+
+      fetchUserSessions();
+    }, [selectedUserId, groupMembers]);
+
+    const totalScore = profileMember?.score || 0;
+    const avatarLevel = profileMember?.avatarLevel || "Novice";
+
+    return (
+      <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-black dark:via-purple-950 dark:to-black">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8 mt-8 sm:mt-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">Fighter Profile</h2>
+            <p className="text-white/70 text-sm sm:text-base">View training history and achievements</p>
+          </div>
+
+          {/* Profile Header Card */}
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl p-6 sm:p-8 mb-6">
+            <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+              <div className="flex-shrink-0">
+                <AvatarImage 
+                  level={avatarLevel}
+                  size="md"
+                  fullImage={true}
+                />
+              </div>
+
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">{profileMember?.name || "Loading..."}</h3>
+                <p className="text-blue-300 text-lg mb-4">{avatarLevel} Fighter</p>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <p className="text-white/70 text-xs sm:text-sm">Total Score</p>
+                    <p className="text-white font-bold text-lg sm:text-xl">{totalScore.toFixed(1)}</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <p className="text-white/70 text-xs sm:text-sm">Sessions</p>
+                    <p className="text-white font-bold text-lg sm:text-xl">{profileSessions.length}</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <p className="text-white/70 text-xs sm:text-sm">Badges</p>
+                    <p className="text-white font-bold text-lg sm:text-xl">{profileMember?.badges.length || 0}</p>
+                  </div>
+                </div>
+
+                {profileMember?.badges && profileMember.badges.length > 0 && (
+                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                    {profileMember.badges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-md border border-yellow-300/50"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Session History */}
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
+            <div className="p-6 sm:p-8 border-b border-white/10">
+              <h4 className="text-xl sm:text-2xl font-bold text-white">Session History</h4>
+            </div>
+
+            {profileLoading ? (
+              <div className="p-8 text-center">
+                <p className="text-white/60">Loading sessions...</p>
+              </div>
+            ) : profileSessions.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-white/60">No sessions logged yet.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/10">
+                {profileSessions.map((session) => (
+                  <div key={session.id} className="px-6 sm:px-8 py-4 sm:py-5 hover:bg-white/10 transition-colors duration-150">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-white font-semibold">{session.type}</p>
+                        <p className="text-white/70 text-sm">{session.level} • {session.date}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                          +{session.points.toFixed(1)} pts
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setPage("ranking")}
+            className="mt-6 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 border border-white/10"
+          >
+            ← Back to Rankings
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const GroupRankingPage = () => {
     // Memoize sorted members to avoid recalculation during render
     const sortedMembers = useMemo(() => {
@@ -1509,7 +1674,11 @@ export default function Home() {
                 {sortedMembers.map((member, index) => (
                   <div
                     key={member.userId}
-                    className={`px-4 sm:px-6 py-5 sm:py-6 transition-all duration-200 hover:bg-white/10 hover:shadow-md cursor-default rounded-lg ${
+                    onClick={() => {
+                      setSelectedUserId(member.userId);
+                      setPage("profile");
+                    }}
+                    className={`px-4 sm:px-6 py-5 sm:py-6 transition-all duration-200 hover:bg-white/10 hover:shadow-md cursor-pointer rounded-lg ${
                       member.isCurrentUser
                         ? "bg-blue-500/20 border-l-4 border-blue-400"
                         : index % 2 === 0
@@ -1518,9 +1687,14 @@ export default function Home() {
                     }`}
                   >
                     <div className="flex items-center gap-4 sm:gap-6">
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 relative">
+                        <AvatarImage 
+                          level={member.avatarLevel || "Novice"}
+                          size="sm"
+                          fullImage={true}
+                        />
                         <div
-                          className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br ${getRankBadgeColor(index)} flex items-center justify-center text-white font-bold text-lg sm:text-xl shadow-lg border-2 border-white/30`}
+                          className={`absolute -bottom-2 -right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br ${getRankBadgeColor(index)} flex items-center justify-center text-white font-bold text-sm sm:text-lg shadow-lg border-2 border-white/30`}
                         >
                           {getRankIcon(index)}
                         </div>
@@ -1612,6 +1786,10 @@ export default function Home() {
               return <RequiresUsernameGate><AvatarEvolutionPage /></RequiresUsernameGate>;
             case "ranking":
               return <RequiresUsernameGate><GroupRankingPage /></RequiresUsernameGate>;
+            case "profile":
+              return <RequiresUsernameGate><UserProfilePage /></RequiresUsernameGate>;
+            case "sparring":
+              return <RequiresUsernameGate><SparringSessions userId={userId} username={username} /></RequiresUsernameGate>;
             default:
               return <HomePage />;
           }
