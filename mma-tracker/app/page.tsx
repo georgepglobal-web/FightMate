@@ -1465,6 +1465,12 @@ export default function Home() {
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">Fighter Profile</h2>
             <p className="text-white/70 text-sm sm:text-base">View training history and achievements</p>
           </div>
+          {!username && (
+            <div className="mb-6 p-4 rounded-lg bg-yellow-600/20 text-yellow-200">
+              You're browsing profiles anonymously. Pick a username on the home screen to
+              start interacting and have your own profile.
+            </div>
+          )}
 
           {/* Profile Header Card */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl p-6 sm:p-8 mb-6">
@@ -1787,9 +1793,15 @@ export default function Home() {
             case "ranking":
               return <RequiresUsernameGate><GroupRankingPage /></RequiresUsernameGate>;
             case "profile":
-              return <RequiresUsernameGate><UserProfilePage /></RequiresUsernameGate>;
+              // profile pages are read‑only and can be viewed even if the current user
+              // hasn't picked a username yet.  leaving the gate off avoids confusing
+              // people who just want to browse other fighters.
+              return <UserProfilePage />;
             case "sparring":
-              return <RequiresUsernameGate><SparringSessions userId={userId} username={username} /></RequiresUsernameGate>;
+              // same for sparring sessions: anybody can look at the open requests,
+              // but the component itself will prompt the user to choose a username
+              // before allowing creation/acceptance.
+              return <SparringSessions userId={userId} username={username} />;
             default:
               return <HomePage />;
           }

@@ -68,6 +68,11 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!username) {
+      alert("You need to set a username before you can create a sparring request.");
+      return;
+    }
+
     if (!date || !time || !location) {
       alert("Please fill in all required fields");
       return;
@@ -127,6 +132,11 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
   };
 
   const handleAcceptSession = async (sessionId: string) => {
+    if (!username) {
+      alert("You need to set a username before you can accept a sparring request.");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("sparring_sessions")
@@ -188,6 +198,12 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">Sparring Sessions</h2>
           <p className="text-white/70 text-sm sm:text-base">Find training partners for sparring</p>
         </div>
+        {!username && (
+          <div className="mb-6 p-4 rounded-lg bg-yellow-600/20 text-yellow-200">
+            You haven't chosen a username yet – you can still browse requests, but you
+            must set a username on the home screen before creating or accepting one.
+          </div>
+        )}
 
         {/* Create New Session Form */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl p-6 sm:p-8 mb-6">
