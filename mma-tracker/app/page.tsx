@@ -78,6 +78,9 @@ const CLASS_LEVEL_MULTIPLIERS: Record<string, number> = {
 // Default group ID
 const DEFAULT_GROUP_ID = "global";
 
+// Application version displayed in the UI
+const APP_VERSION = "1.0";
+
 /**
  * Pure helper function to calculate avatar level from points
  * Can be used synchronously throughout the component
@@ -844,6 +847,8 @@ export default function Home() {
             >
               Sign Out
             </button>
+            {/* version label */}
+            <span className="text-xs text-white/50 ml-4">v{APP_VERSION}</span>
           </div>
         </div>
       </header>
