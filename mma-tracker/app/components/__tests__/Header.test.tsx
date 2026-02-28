@@ -24,8 +24,4 @@ describe('Header', () => {
     expect(onSignOut).toHaveBeenCalledOnce();
   });
 
-  it('Back button not visible on home page (default)', () => {
-    renderHeader();
-    expect(screen.queryByLabelText('Back to home')).not.toBeInTheDocument();
-  });
 });

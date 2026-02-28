@@ -1,12 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { APP_VERSION } from "@/lib/constants";
 
 export default function Header({ onSignOut }: { onSignOut: () => void }) {
-  const pathname = usePathname();
-
   return (
     <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-white/10">
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
@@ -17,9 +14,6 @@ export default function Header({ onSignOut }: { onSignOut: () => void }) {
           <span>FightMate</span>
         </Link>
         <div className="flex items-center gap-2">
-          {pathname !== "/" && (
-            <Link href="/" className="text-white/80 hover:text-white bg-white/0 px-3 py-1 rounded-md border border-white/10" aria-label="Back to home">Back</Link>
-          )}
           <button onClick={onSignOut} className="text-white/80 hover:text-white bg-white/0 px-3 py-1 rounded-md border border-white/10" aria-label="Sign out">Sign Out</button>
           <span className="text-xs text-white/50 ml-4">v{APP_VERSION}</span>
         </div>
