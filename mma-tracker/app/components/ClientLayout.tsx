@@ -1,15 +1,11 @@
 "use client";
 
-import { PageProvider } from "../contexts/PageContext";
+import { AppProvider } from "../contexts/AppContext";
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <PageProvider>
+    <AppProvider>
       <main>{children}</main>
-    </PageProvider>
+    </AppProvider>
   );
 }

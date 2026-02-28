@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePage } from "../contexts/PageContext";
+import Link from "next/link";
 import AvatarImage from "./AvatarImage";
 import { db, type DbSession } from "@/lib/data";
 import type { MemberRanking } from "@/lib/constants";
 
 export default function UserProfilePage({ selectedUserId, groupMembers, username }: { selectedUserId: string | null; groupMembers: MemberRanking[]; username: string | null }) {
-  const { setCurrentPage: setPage } = usePage();
   const [profileSessions, setProfileSessions] = useState<DbSession[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -73,7 +72,7 @@ export default function UserProfilePage({ selectedUserId, groupMembers, username
             </div>
           )}
         </div>
-        <button onClick={() => setPage("ranking")} className="mt-6 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 border border-white/10">← Back to Rankings</button>
+        <Link href="/ranking" className="mt-6 inline-block w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-semibold rounded-xl transition-all duration-200 border border-white/10">← Back to Rankings</Link>
       </div>
     </div>
   );

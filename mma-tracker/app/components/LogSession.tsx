@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { usePage } from "../contexts/PageContext";
-import { SESSION_TYPES, CLASS_LEVELS, DEFAULT_GROUP_ID, normalizeDateToISO } from "@/lib/constants";
-import type { DbSession } from "@/lib/data";
+import { useRouter } from "next/navigation";
+import { SESSION_TYPES, CLASS_LEVELS, normalizeDateToISO } from "@/lib/constants";
 
 export default function LogSession({ onAddSession }: { onAddSession: (session: { date: string; type: string; level: string }) => void }) {
-  const { setCurrentPage: setPage } = usePage();
+  const router = useRouter();
   const [date, setDate] = useState("");
   const [type, setType] = useState(SESSION_TYPES[0]);
   const [level, setLevel] = useState(CLASS_LEVELS[0]);
@@ -19,7 +18,7 @@ export default function LogSession({ onAddSession }: { onAddSession: (session: {
     onAddSession({ date: normalizeDateToISO(date), type, level });
     setDate(""); setType(SESSION_TYPES[0]); setLevel(CLASS_LEVELS[0]);
     setIsSubmitting(false);
-    setPage("history");
+    router.push("/history");
   };
 
   return (

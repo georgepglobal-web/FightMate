@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { usePage } from "../contexts/PageContext";
+import { useRouter } from "next/navigation";
 import AvatarImage from "./AvatarImage";
 import type { MemberRanking } from "@/lib/constants";
 
@@ -15,7 +15,7 @@ interface GroupRankingPageProps {
 }
 
 export default function GroupRankingPage({ groupMembers, userId, username, currentUserScore, currentUserBadges, onSelectUser }: GroupRankingPageProps) {
-  const { setCurrentPage: setPage } = usePage();
+  const router = useRouter();
 
   const sortedMembers = useMemo(() => {
     const updated = groupMembers.map((m) =>
@@ -50,7 +50,7 @@ export default function GroupRankingPage({ groupMembers, userId, username, curre
           ) : (
             <div className="divide-y divide-white/10">
               {sortedMembers.map((member, index) => (
-                <div key={member.userId} onClick={() => { onSelectUser(member.userId); setPage("profile"); }} className={`px-4 sm:px-6 py-5 sm:py-6 transition-all duration-200 hover:bg-white/10 cursor-pointer rounded-lg ${member.isCurrentUser ? "bg-blue-500/20 border-l-4 border-blue-400" : index % 2 === 0 ? "bg-white/5" : "bg-white/[0.02]"}`}>
+                <div key={member.userId} onClick={() => { onSelectUser(member.userId); router.push("/profile"); }} className={`px-4 sm:px-6 py-5 sm:py-6 transition-all duration-200 hover:bg-white/10 cursor-pointer rounded-lg ${member.isCurrentUser ? "bg-blue-500/20 border-l-4 border-blue-400" : index % 2 === 0 ? "bg-white/5" : "bg-white/[0.02]"}`}>
                   <div className="flex items-center gap-4 sm:gap-6">
                     <div className="flex-shrink-0 relative">
                       <AvatarImage level={member.avatarLevel || "Novice"} size="sm" fullImage={true} />

@@ -1,14 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import LogSession from '../LogSession';
 
 function renderLogSession(onAddSession = vi.fn()) {
-  return { onAddSession, ...render(
-    <PageProvider>
-      <LogSession onAddSession={onAddSession} />
-    </PageProvider>
-  )};
+  return { onAddSession, ...render(<LogSession onAddSession={onAddSession} />) };
 }
 
 describe('LogSession', () => {
@@ -37,13 +32,11 @@ describe('LogSession', () => {
 
   it('successful submit calls onAddSession with { date, type, level }', () => {
     const { onAddSession } = renderLogSession();
-    const dateInput = screen.getByLabelText('Date');
-    fireEvent.change(dateInput, { target: { value: '2025-01-15' } });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2025-01-15' } });
     fireEvent.submit(screen.getByRole('button', { name: /Log Session/i }));
     expect(onAddSession).toHaveBeenCalledWith(
       expect.objectContaining({ date: '2025-01-15', type: 'Boxing', level: 'Basic' })
     );
-    // Should NOT include points or group_id
     const arg = onAddSession.mock.calls[0][0];
     expect(arg).not.toHaveProperty('points');
     expect(arg).not.toHaveProperty('group_id');

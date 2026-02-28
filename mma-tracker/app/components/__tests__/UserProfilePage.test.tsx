@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import UserProfilePage from '../UserProfilePage';
 import { mockLocalStorage } from '../../../lib/__tests__/test-utils';
 import type { MemberRanking } from '@/lib/constants';
@@ -28,9 +27,9 @@ beforeEach(() => {
 
 function renderProfile(selectedUserId: string | null = 'u1', username: string | null = 'Bob') {
   return render(
-    <PageProvider>
+    
       <UserProfilePage selectedUserId={selectedUserId} groupMembers={members} username={username} />
-    </PageProvider>
+    
   );
 }
 

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import GroupRankingPage from '../GroupRankingPage';
 import type { MemberRanking } from '@/lib/constants';
 
@@ -13,24 +12,20 @@ const members: MemberRanking[] = [
 function renderRanking(props: Partial<Parameters<typeof GroupRankingPage>[0]> = {}) {
   const onSelectUser = props.onSelectUser ?? vi.fn();
   return { onSelectUser, ...render(
-    <PageProvider>
-      <GroupRankingPage
-        groupMembers={props.groupMembers ?? members}
-        userId={props.userId ?? 'u2'}
-        username={props.username ?? 'Bob'}
-        currentUserScore={props.currentUserScore ?? 20}
-        currentUserBadges={props.currentUserBadges ?? []}
-        onSelectUser={onSelectUser}
-      />
-    </PageProvider>
+    <GroupRankingPage
+      groupMembers={props.groupMembers ?? members}
+      userId={props.userId ?? 'u2'}
+      username={props.username ?? 'Bob'}
+      currentUserScore={props.currentUserScore ?? 20}
+      currentUserBadges={props.currentUserBadges ?? []}
+      onSelectUser={onSelectUser}
+    />
   )};
 }
 
 describe('GroupRankingPage', () => {
   it('renders No members found when empty', () => {
     renderRanking({ groupMembers: [], currentUserScore: 0 });
-    // Current user is always injected, so it won't be truly empty
-    // But with score 0 and no other members, at least the user shows
   });
 
   it('shows member names', () => {

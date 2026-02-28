@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import AvatarEvolutionPage from '../AvatarEvolutionPage';
 import type { Avatar } from '@/lib/constants';
 
 function renderPage(avatar: Avatar) {
   return render(
-    <PageProvider>
+    
       <AvatarEvolutionPage avatar={avatar} />
-    </PageProvider>
+    
   );
 }
 

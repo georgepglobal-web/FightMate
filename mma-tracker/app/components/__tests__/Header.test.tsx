@@ -1,14 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import Header from '../Header';
 
 function renderHeader(onSignOut = vi.fn()) {
-  return render(
-    <PageProvider>
-      <Header onSignOut={onSignOut} />
-    </PageProvider>
-  );
+  return render(<Header onSignOut={onSignOut} />);
 }
 
 describe('Header', () => {

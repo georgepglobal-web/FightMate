@@ -1,15 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import RequiresUsernameGate from '../RequiresUsernameGate';
 
 function renderGate(username: string | null, loading = false) {
   return render(
-    <PageProvider>
+    
       <RequiresUsernameGate username={username} loading={loading}>
         <div data-testid="child">Protected content</div>
       </RequiresUsernameGate>
-    </PageProvider>
+    
   );
 }
 

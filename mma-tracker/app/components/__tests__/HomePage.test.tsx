@@ -1,15 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import HomePage from '../HomePage';
 import type { Avatar } from '@/lib/constants';
 import type { DbSession } from '@/lib/data-provider';
 
 function renderHome(avatar: Avatar, sessions: DbSession[] = []) {
   return render(
-    <PageProvider>
+    
       <HomePage avatar={avatar} sessions={sessions} />
-    </PageProvider>
+    
   );
 }
 

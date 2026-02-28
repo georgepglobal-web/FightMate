@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { PageProvider } from '../../contexts/PageContext';
 import HistoryPage from '../HistoryPage';
 import type { DbSession } from '@/lib/data-provider';
 
@@ -19,9 +18,9 @@ const makeSessions = (count: number): DbSession[] =>
 
 function renderHistory(sessions: DbSession[] = [], onDelete = vi.fn()) {
   return { onDelete, ...render(
-    <PageProvider>
+    
       <HistoryPage sessions={sessions} onDelete={onDelete} />
-    </PageProvider>
+    
   )};
 }
 
