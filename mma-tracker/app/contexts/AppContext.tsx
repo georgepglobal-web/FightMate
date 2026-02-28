@@ -67,7 +67,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const initializeUser = useCallback((uid: string) => {
     if (!uid) return;
-    const name = db.getMemberUsername(uid);
+    const user = db.getUser();
+    const name = db.getMemberUsername(uid) || user?.username || null;
     if (name) setUsername(name);
   }, []);
 
