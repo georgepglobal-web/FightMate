@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const db = getDb();
-    const id = crypto.randomUUID();
+    const id = body.id || crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare(
       "INSERT INTO sparring_sessions (id, creator_id, opponent_id, date, time, location, notes, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"

@@ -186,10 +186,12 @@ export class SqliteProvider implements DataProvider {
   }
 
   addSparringSession(session: Omit<SparringSession, "id" | "created_at" | "updated_at">): SparringSession {
-    const temp: SparringSession = { ...session, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const temp: SparringSession = { ...session, id, created_at: now, updated_at: now };
     this._sparringCache = [temp, ...this._sparringCache];
     this.notify(KEYS.SPARRING);
-    postJson("/api/sparring", session);
+    postJson("/api/sparring", { ...session, id });
     return temp;
   }
 
@@ -217,10 +219,11 @@ export class SqliteProvider implements DataProvider {
   }
 
   addShoutboxMessage(msg: Omit<ShoutboxMessage, "id" | "created_at">): ShoutboxMessage {
-    const temp: ShoutboxMessage = { ...msg, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+    const id = crypto.randomUUID();
+    const temp: ShoutboxMessage = { ...msg, id, created_at: new Date().toISOString() };
     this._shoutboxCache = [temp, ...this._shoutboxCache];
     this.notify(KEYS.SHOUTBOX);
-    postJson("/api/shoutbox", msg);
+    postJson("/api/shoutbox", { ...msg, id });
     return temp;
   }
 }

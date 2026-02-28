@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const db = getDb();
-    const id = crypto.randomUUID();
+    const id = body.id || crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare("INSERT INTO shoutbox_messages (id, user_id, type, content, created_at) VALUES (?, ?, ?, ?, ?)").run(id, body.user_id, body.type || "user", body.content, now);
     return json({ id, ...body, created_at: now });
