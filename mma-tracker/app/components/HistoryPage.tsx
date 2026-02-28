@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { normalizeDateToISO, parseDateUTC } from "@/lib/constants";
 import type { DbSession } from "@/lib/data";
+import ConfirmDialog from "./ConfirmDialog";
 
 const SESSION_TYPE_COLORS: Record<string, string> = {
   Boxing: "from-red-500 to-red-600", "Muay Thai": "from-orange-500 to-orange-600",
@@ -19,8 +21,17 @@ function formatDate(dateString: string) {
 }
 
 export default function HistoryPage({ sessions, onDelete }: { sessions: DbSession[]; onDelete: (id: string) => void }) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   return (
     <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 dark:from-black dark:via-green-950 dark:to-black">
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="Are you sure you want to delete this session?"
+          onConfirm={() => { onDelete(pendingDeleteId); setPendingDeleteId(null); }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 mt-8 sm:mt-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">Training History</h2>
@@ -56,7 +67,7 @@ export default function HistoryPage({ sessions, onDelete }: { sessions: DbSessio
                     <div className="col-span-1 sm:col-span-3">
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/20">{session.level}</span>
-                        <button onClick={() => onDelete(session.id)} className="ml-2 p-2 text-white/60 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors duration-200" aria-label="Delete session">
+                        <button onClick={() => setPendingDeleteId(session.id)} className="ml-2 p-2 text-white/60 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors duration-200" aria-label="Delete session">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>

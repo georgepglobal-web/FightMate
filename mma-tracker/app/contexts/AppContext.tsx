@@ -146,7 +146,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteSession = (sessionId: string) => {
-    if (!confirm("Are you sure you want to delete this session?")) return;
     db.deleteSession(sessionId);
     setSessions((prev) => prev.filter((x) => x.id !== sessionId));
   };

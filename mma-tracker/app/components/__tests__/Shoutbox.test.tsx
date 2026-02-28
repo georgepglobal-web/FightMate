@@ -73,16 +73,14 @@ describe('Shoutbox', () => {
   });
 
   it('rate limits messages', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<Shoutbox userId="u1" username="fighter" />);
     const input = screen.getByPlaceholderText('Say something...');
     fireEvent.change(input, { target: { value: 'msg1' } });
     fireEvent.click(screen.getByText('Send'));
     fireEvent.change(input, { target: { value: 'msg2' } });
     fireEvent.click(screen.getByText('Send'));
-    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Rate limit'));
+    expect(screen.getByText(/Rate limit/)).toBeInTheDocument();
     expect(mockDb.addShoutboxMessage).toHaveBeenCalledTimes(1);
-    alertSpy.mockRestore();
   });
 
   it('subscribes to SHOUTBOX key on mount', () => {

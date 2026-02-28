@@ -17,6 +17,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
   const [messages, setMessages] = useState<ShoutboxMessageWithName[]>([]);
   const [input, setInput] = useState("");
   const [posting, setPosting] = useState(false);
+  const [error, setError] = useState("");
   const lastPostTsRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const onNewMessagesRef = useRef(onNewMessages);
@@ -57,12 +58,13 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
   }, [messages]);
 
   const postMessage = () => {
-    if (!userId) return alert("You must be signed in to post");
+    if (!userId) { setError("You must be signed in to post"); return; }
     const trimmed = input.trim();
     if (!trimmed) return;
-    if (trimmed.length > 200) return alert("Message must be 200 characters or less");
+    if (trimmed.length > 200) { setError("Message must be 200 characters or less"); return; }
     const t = Date.now();
-    if (t - lastPostTsRef.current < 10000) return alert("Rate limit: 1 message per 10 seconds");
+    if (t - lastPostTsRef.current < 10000) { setError("Rate limit: 1 message per 10 seconds"); return; }
+    setError("");
     lastPostTsRef.current = t;
 
     setPosting(true);
@@ -113,6 +115,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
             </button>
           </div>
           <div className="text-white/50 text-xs mt-2">Max 200 characters — 1 message per 10s</div>
+          {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
         </div>
       </div>
     </div>

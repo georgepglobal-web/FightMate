@@ -51,10 +51,11 @@ describe('HistoryPage', () => {
     expect(screen.getByText('Basic')).toBeInTheDocument();
   });
 
-  it('delete button calls onDelete with session id', () => {
+  it('delete button calls onDelete with session id after confirmation', () => {
     const { onDelete } = renderHistory(makeSessions(1));
-    const deleteBtn = screen.getByLabelText('Delete session');
-    fireEvent.click(deleteBtn);
+    fireEvent.click(screen.getByLabelText('Delete session'));
+    // ConfirmDialog should appear
+    fireEvent.click(screen.getByText('Confirm'));
     expect(onDelete).toHaveBeenCalledWith('s0');
   });
 });

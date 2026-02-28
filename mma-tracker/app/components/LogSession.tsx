@@ -10,10 +10,12 @@ export default function LogSession({ onAddSession }: { onAddSession: (session: {
   const [type, setType] = useState(SESSION_TYPES[0]);
   const [level, setLevel] = useState(CLASS_LEVELS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!date) { alert("Please select a date"); return; }
+    if (!date) { setError("Please select a date"); return; }
+    setError("");
     setIsSubmitting(true);
     onAddSession({ date: normalizeDateToISO(date), type, level });
     setDate(""); setType(SESSION_TYPES[0]); setLevel(CLASS_LEVELS[0]);
@@ -30,6 +32,7 @@ export default function LogSession({ onAddSession }: { onAddSession: (session: {
         </div>
         <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && <p className="text-red-400 text-sm">{error}</p>}
             <div>
               <label htmlFor="date" className="block text-white font-semibold mb-2 text-sm sm:text-base">Date</label>
               <input type="date" id="date" value={date} onChange={(e) => setDate(normalizeDateToISO(e.target.value))} required className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm text-sm sm:text-base" style={{ colorScheme: "dark" }} />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { db, type SparringSession as SparringSessionType } from "@/lib/data";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface SparringSessionProps {
   userId: string;
@@ -12,6 +13,8 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
   const [sparringSessions, setSparringSessions] = useState<SparringSessionType[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -30,8 +33,9 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
 
   const handleCreateSession = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username) return alert("Set a username first.");
-    if (!date || !time || !location) return alert("Please fill in all required fields");
+    if (!username) { setError("Set a username first."); return; }
+    if (!date || !time || !location) { setError("Please fill in all required fields"); return; }
+    setError("");
 
     setIsSubmitting(true);
     db.addSparringSession({ creator_id: userId, opponent_id: null, date, time, location, notes: notes || null, status: "open" });
@@ -41,13 +45,13 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
   };
 
   const handleAcceptSession = (sessionId: string) => {
-    if (!username) return alert("Set a username first.");
+    if (!username) { setError("Set a username first."); return; }
     db.updateSparringSession(sessionId, { opponent_id: userId, status: "accepted" });
   };
 
   const handleCancelSession = (sessionId: string) => {
-    if (!confirm("Cancel this sparring request?")) return;
     db.updateSparringSession(sessionId, { status: "cancelled" });
+    setPendingCancelId(null);
   };
 
   const openSessions = sparringSessions.filter((s) => s.status === "open");
@@ -56,11 +60,19 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
 
   return (
     <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 dark:from-black dark:via-red-950 dark:to-black">
+      {pendingCancelId && (
+        <ConfirmDialog
+          message="Cancel this sparring request?"
+          onConfirm={() => handleCancelSession(pendingCancelId)}
+          onCancel={() => setPendingCancelId(null)}
+        />
+      )}
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 mt-8 sm:mt-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2 drop-shadow-lg">Sparring Sessions</h2>
           <p className="text-white/70 text-sm sm:text-base">Find training partners for sparring</p>
         </div>
+        {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
         {!username && (
           <div className="mb-6 p-4 rounded-lg bg-yellow-600/20 text-yellow-200">
             You haven&apos;t chosen a username yet – browse requests, but set a username to create or accept one.
@@ -136,7 +148,7 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
                       </div>
                       <div className="flex items-center gap-3">
                         {isMySession ? (
-                          <button onClick={() => handleCancelSession(session.id)} className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-400/30 rounded-lg text-sm font-semibold transition-colors">Cancel</button>
+                          <button onClick={() => setPendingCancelId(session.id)} className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-400/30 rounded-lg text-sm font-semibold transition-colors">Cancel</button>
                         ) : (
                           <button onClick={() => handleAcceptSession(session.id)} className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg text-sm font-semibold transition-all hover:scale-105">Accept</button>
                         )}
