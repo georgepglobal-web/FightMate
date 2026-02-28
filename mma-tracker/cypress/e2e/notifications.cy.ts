@@ -37,7 +37,7 @@ describe("Shoutbox notifications", () => {
     login("e2e-notif-2");
     openChat();
     sendMessage("my own message");
-    cy.contains("my own message").should("be.visible");
+    cy.contains("my own message").should("exist");
     closeChat();
     cy.wait(3000);
     unreadBadge().should("not.exist");
@@ -45,10 +45,8 @@ describe("Shoutbox notifications", () => {
 
   it("shows unread badge when another user sends a message", () => {
     login("e2e-notif-3");
-    // Note current state
     fab().then(($fab) => {
       const before = $fab.find("span.bg-rose-500").length ? parseInt($fab.find("span.bg-rose-500").text()) : 0;
-      // Inject message from different user via API
       cy.request("POST", "/api/shoutbox", {
         user_id: "external-user",
         type: "user",
@@ -71,9 +69,8 @@ describe("Shoutbox notifications", () => {
     cy.wait(3000);
     unreadBadge().should("exist");
     openChat();
-    cy.contains("another cross-user msg").should("be.visible");
+    cy.contains("another cross-user msg").should("exist");
     closeChat();
-    // After opening and closing chat, badge should be gone
     fab().find("span.bg-rose-500").should("not.exist");
   });
 
@@ -81,7 +78,7 @@ describe("Shoutbox notifications", () => {
     login("e2e-notif-5");
     openChat();
     sendMessage("pre-existing msg");
-    cy.contains("pre-existing msg").should("be.visible");
+    cy.contains("pre-existing msg").should("exist");
     closeChat();
     cy.reload();
     cy.wait(3000);

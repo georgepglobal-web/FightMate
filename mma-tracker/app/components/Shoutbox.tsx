@@ -102,6 +102,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") postMessage(); }}
               placeholder="Say something..."
               maxLength={200}
               className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"

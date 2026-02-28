@@ -1,11 +1,14 @@
 "use client";
 
 import { AppProvider } from "../contexts/AppContext";
+import ErrorBoundary from "./ErrorBoundary";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AppProvider>
-      <main>{children}</main>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <main>{children}</main>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

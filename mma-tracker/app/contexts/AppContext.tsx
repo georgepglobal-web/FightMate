@@ -19,6 +19,7 @@ interface AppContextType {
   setUsername: React.Dispatch<React.SetStateAction<string | null>>;
   authLoading: boolean;
   setAuthLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  dataReady: boolean;
   sessions: DbSession[];
   avatar: Avatar;
   currentUserScore: number;
@@ -44,6 +45,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [groupMembers, setGroupMembers] = useState<MemberRanking[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -91,14 +93,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId || authLoading) return;
     initializeUser(userId);
-    db.init?.(userId).then(() => {
-      fetchSessions();
-      fetchGroupMembers();
-    }).catch(() => {
-      // Supabase unavailable — local data still works
-      fetchSessions();
-      fetchGroupMembers();
-    });
+    const p = db.init?.(userId);
+    if (p) {
+      p.then(() => { fetchSessions(); fetchGroupMembers(); setDataReady(true); })
+       .catch(() => { fetchSessions(); fetchGroupMembers(); setDataReady(true); });
+    } else {
+      fetchSessions(); fetchGroupMembers(); setDataReady(true);
+    }
     return () => { db.destroy?.(); };
   }, [userId, authLoading, initializeUser, fetchGroupMembers]);
 
@@ -171,7 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      userId, setUserId, username, setUsername, authLoading, setAuthLoading,
+      userId, setUserId, username, setUsername, authLoading, setAuthLoading, dataReady,
       sessions, avatar, currentUserScore, currentUserBadges, groupMembers,
       addSession, deleteSession, handleSignOut, fetchGroupMembers, handleOnboardingComplete,
       isChatOpen, setIsChatOpen, unreadCount, selectedUserId, setSelectedUserId,
