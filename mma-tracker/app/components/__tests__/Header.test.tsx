@@ -1,0 +1,36 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { PageProvider } from '../../contexts/PageContext';
+import Header from '../Header';
+
+function renderHeader(onSignOut = vi.fn()) {
+  return render(
+    <PageProvider>
+      <Header onSignOut={onSignOut} />
+    </PageProvider>
+  );
+}
+
+describe('Header', () => {
+  it('renders FightMate brand text', () => {
+    renderHeader();
+    expect(screen.getByText('FightMate')).toBeInTheDocument();
+  });
+
+  it('shows version number', () => {
+    renderHeader();
+    expect(screen.getByText(/^v/)).toBeInTheDocument();
+  });
+
+  it('Sign Out button calls onSignOut', () => {
+    const onSignOut = vi.fn();
+    renderHeader(onSignOut);
+    fireEvent.click(screen.getByLabelText('Sign out'));
+    expect(onSignOut).toHaveBeenCalledOnce();
+  });
+
+  it('Back button not visible on home page (default)', () => {
+    renderHeader();
+    expect(screen.queryByLabelText('Back to home')).not.toBeInTheDocument();
+  });
+});
