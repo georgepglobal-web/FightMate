@@ -117,8 +117,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [avatar.level, avatar.cumulativePoints, userId, username, sessions.length]);
 
   // Shoutbox unread tracking
+  const lastShoutboxCountRef = useRef(db.getShoutboxMessages(30).length);
   useEffect(() => {
-    const unsub = db.subscribe(db.KEYS.SHOUTBOX, () => { if (!isChatOpen) setUnreadCount((p) => p + 1); });
+    const unsub = db.subscribe(db.KEYS.SHOUTBOX, () => {
+      const current = db.getShoutboxMessages(30).length;
+      const diff = current - lastShoutboxCountRef.current;
+      lastShoutboxCountRef.current = current;
+      if (diff > 0 && !isChatOpen) setUnreadCount((p) => p + diff);
+    });
     return unsub;
   }, [isChatOpen]);
 
