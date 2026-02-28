@@ -1,61 +1,49 @@
+"use client";
+
 import React, { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { setUser as storeSetUser } from "../../lib/store";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [username, setUsername] = useState("");
 
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!email) return alert("Please enter your email");
-
-    try {
-      setSending(true);
-      const { data, error } = await supabase.auth.signInWithOtp({ email });
-      if (error) {
-        console.error("Error sending magic link:", error);
-        alert("Error sending magic link. Check console.");
-        return;
-      }
-
-      console.log("Magic link sent response:", data);
-      setSent(true);
-    } catch (err) {
-      console.error("Unexpected error sending magic link:", err);
-      alert("Unexpected error. Check console.");
-    } finally {
-      setSending(false);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = username.trim();
+    if (!trimmed) return;
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(trimmed)) {
+      alert("Username must be 3-20 characters: letters, numbers, underscores, or hyphens");
+      return;
     }
+    const id = crypto.randomUUID();
+    storeSetUser({ id, username: trimmed });
+    window.location.reload();
   };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-black dark:via-purple-950 dark:to-black">
       <div className="w-full max-w-md p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10">
-        <h2 className="text-2xl font-bold text-white mb-2">Sign in</h2>
-        <p className="text-white/70 text-sm mb-4">Enter your email to receive a magic link.</p>
+        <h2 className="text-2xl font-bold text-white mb-2">Welcome to FightMate 🥊</h2>
+        <p className="text-white/70 text-sm mb-4">Choose a username to get started.</p>
 
-        {sent ? (
-          <div className="text-white">Check your email for the magic link.</div>
-        ) : (
-          <form onSubmit={handleSend} className="space-y-4">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60"
-            />
-            <button
-              type="submit"
-              onClick={handleSend}
-              disabled={sending}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl"
-            >
-              {sending ? "Sending…" : "Send magic link"}
-            </button>
-          </form>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username (3-20 characters)"
+            maxLength={20}
+            autoFocus
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60"
+          />
+          <p className="text-white/50 text-xs">Letters, numbers, underscores, or hyphens only</p>
+          <button
+            type="submit"
+            disabled={!username.trim()}
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl"
+          >
+            Get Started
+          </button>
+        </form>
       </div>
     </div>
   );

@@ -1,16 +1,14 @@
-'use client';
+"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "../../lib/supabase";
-import { analytics } from "@/lib/analytics";
-
-interface ShoutboxMessage {
-  id: string;
-  user_id: string;
-  type: "system" | "user";
-  content: string;
-  created_at: string;
-}
+import {
+  getShoutboxMessages,
+  addShoutboxMessage,
+  getMemberUsername,
+  subscribe,
+  KEYS,
+  type ShoutboxMessage,
+} from "../../lib/store";
 
 interface ShoutboxMessageWithName extends ShoutboxMessage {
   displayName: string;
@@ -34,104 +32,48 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
   };
 
   const timeAgo = (iso: string) => {
-    const d = new Date(iso).getTime();
-    const s = Math.floor((Date.now() - d) / 1000);
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
     if (s < 60) return `${s}s`;
     const m = Math.floor(s / 60);
     if (m < 60) return `${m}m`;
     const h = Math.floor(m / 60);
     if (h < 24) return `${h}h`;
-    const days = Math.floor(h / 24);
-    return `${days}d`;
+    return `${Math.floor(h / 24)}d`;
   };
 
-  const fetchMessages = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const { data, error } = await supabase
-        .from("shoutbox_messages")
-        .select("id,user_id,type,content,created_at")
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (error) {
-        console.error("Error fetching shoutbox messages:", error);
-        return;
-      }
-
-      const msgs = (data ?? []) as ShoutboxMessage[];
-      const userIds = Array.from(new Set(msgs.map((m) => m.user_id).filter(Boolean)));
-
-      const usernameMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: gm, error: gmErr } = await supabase
-          .from('group_members')
-          .select('user_id,username')
-          .in('user_id', userIds as string[]);
-
-        if (!gmErr && gm) {
-          (gm as { user_id: string; username: string | null }[]).forEach((g) => {
-            if (g.user_id) usernameMap[g.user_id] = g.username || '';
-          });
-        }
-      }
-
-      const mapped: ShoutboxMessageWithName[] = msgs.map((m) => ({
-        ...m,
-        displayName:
-          usernameMap[m.user_id] || (m.user_id === userId ? username || 'You' : 'Anonymous'),
-      }));
-
-      setMessages(mapped);
-      onNewMessages?.(mapped);
-    } catch (e) {
-      console.error("Error fetching shoutbox messages:", e);
-    }
-  }, [userId, username]);
+  const fetchMessages = useCallback(() => {
+    const raw = getShoutboxMessages(30);
+    const mapped: ShoutboxMessageWithName[] = raw.map((m) => ({
+      ...m,
+      displayName: getMemberUsername(m.user_id) || (m.user_id === userId ? username || "You" : "Anonymous"),
+    }));
+    setMessages(mapped);
+    onNewMessages?.(mapped);
+  }, [userId, username, onNewMessages]);
 
   useEffect(() => {
     fetchMessages();
-    const id = window.setInterval(fetchMessages, 5000);
-    return () => clearInterval(id);
+    const unsub = subscribe(KEYS.SHOUTBOX, fetchMessages);
+    return unsub;
   }, [fetchMessages]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const postMessage = async () => {
+  const postMessage = () => {
     if (!userId) return alert("You must be signed in to post");
     const trimmed = input.trim();
     if (!trimmed) return;
     if (trimmed.length > 200) return alert("Message must be 200 characters or less");
-    const now = Date.now();
-    if (now - lastPostTsRef.current < 10000) return alert("Rate limit: 1 message per 10 seconds");
-    lastPostTsRef.current = now;
+    const t = Date.now();
+    if (t - lastPostTsRef.current < 10000) return alert("Rate limit: 1 message per 10 seconds");
+    lastPostTsRef.current = t;
 
-    try {
-      setPosting(true);
-      const { error } = await supabase
-        .from("shoutbox_messages")
-        .insert({ user_id: userId, type: "user", content: trimmed });
-
-      if (error) {
-        console.error("Error posting shoutbox message:", error);
-        alert("Error posting message. Check console.");
-        return;
-      }
-
-      setInput("");
-      
-      // Track analytics
-      analytics.messagesSent();
-      
-      await fetchMessages();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setPosting(false);
-    }
+    setPosting(true);
+    addShoutboxMessage({ user_id: userId, type: "user", content: trimmed });
+    setInput("");
+    setPosting(false);
   };
 
   return (
@@ -148,7 +90,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
                     <div className="text-white font-semibold text-sm">{m.displayName}</div>
-                    <div className={`text-white/90 text-sm`}>{m.content}</div>
+                    <div className="text-white/90 text-sm">{m.content}</div>
                   </div>
                   <div className="text-white/50 text-xs whitespace-nowrap">{timeAgo(m.created_at)}</div>
                 </div>
