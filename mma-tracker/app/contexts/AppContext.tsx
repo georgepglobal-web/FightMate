@@ -65,6 +65,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initialLoadRef.current = true;
   }, [userId, authLoading]);
 
+  // Re-read sessions when the provider notifies (async SQLite fetch completed)
+  useEffect(() => {
+    if (!userId) return;
+    return db.subscribe(db.KEYS.SESSIONS, () => {
+      setSessions(db.getSessions(userId));
+    });
+  }, [userId]);
+
   const initializeUser = useCallback((uid: string) => {
     if (!uid) return;
     const user = db.getUser();
