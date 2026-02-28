@@ -8,7 +8,8 @@ type Listener = () => void;
 
 async function api<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, opts);
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return [] as unknown as T; }
 }
 
 function postJson(path: string, body: unknown) {
