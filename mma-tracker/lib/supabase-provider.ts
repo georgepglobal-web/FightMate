@@ -2,7 +2,7 @@
 // Reads from localStorage cache, writes to both localStorage and Supabase.
 // Call `init()` once on app load to hydrate the cache from Supabase.
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 import { LocalStorageProvider } from "./local-provider";
 import type {
   DataProvider,
@@ -12,10 +12,6 @@ import type {
   ShoutboxMessage,
   LocalUser,
 } from "./data-provider";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Delegate all sync reads to the local provider (acts as cache)
 const local = new LocalStorageProvider();

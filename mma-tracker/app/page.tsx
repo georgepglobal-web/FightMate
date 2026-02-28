@@ -3,16 +3,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePage } from "./contexts/PageContext";
 import { db, type GroupMember, type DbSession } from "../lib/data";
-import { analytics } from "@/lib/analytics";
 import {
   DEFAULT_GROUP_ID,
-  CLASS_LEVEL_MULTIPLIERS,
   calculateLevelFromPoints,
   deriveAvatarFromSessions,
-  parseDateUTC,
   type Avatar,
   type MemberRanking,
 } from "@/lib/constants";
+import { calculateWeeklyDiversityBonus, calculateSessionPoints } from "@/lib/points";
+import { calculateBadges } from "@/lib/badges";
 
 import AuthGate from "./components/AuthGate";
 import Header from "./components/Header";
@@ -41,20 +40,18 @@ export default function Home() {
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevAvatarLevelRef = useRef<Avatar["level"] | undefined>(undefined);
+  const initialLoadRef = useRef(false);
 
   const handleSignOut = () => {
     db.signOut();
     if (typeof window !== "undefined") window.location.reload();
   };
 
-  // Analytics
-  useEffect(() => { analytics.setUser(userId); }, [userId]);
-  useEffect(() => { analytics.setPage(page); analytics.pageView(page); }, [page]);
-
   // Fetch sessions
   const fetchSessions = useCallback(() => {
     if (!userId || authLoading) return;
     setSessions(db.getSessions(userId));
+    initialLoadRef.current = true;
   }, [userId, authLoading]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
@@ -97,28 +94,15 @@ export default function Home() {
   // Derived state
   const avatar = useMemo(() => deriveAvatarFromSessions(sessions), [sessions]);
 
-  const currentUserBadges = useMemo(() => {
-    const badges: string[] = [];
-    const typeCounts: Record<string, number> = {};
-    sessions.forEach((s) => { typeCounts[s.type] = (typeCounts[s.type] || 0) + 1; });
-    const uniqueTypes = Object.keys(typeCounts).length;
-    if (uniqueTypes >= 5 && sessions.length >= 10) badges.push("Most Balanced");
-    const striking = ["Boxing", "Muay Thai", "K1", "MMA"].reduce((sum, t) => sum + (typeCounts[t] || 0), 0);
-    const grappling = ["BJJ", "Wrestling", "Judo", "Takedowns"].reduce((sum, t) => sum + (typeCounts[t] || 0), 0);
-    if (striking >= 5 && striking > grappling) badges.push("Best Striker");
-    if (grappling >= 5 && grappling > striking) badges.push("Best Grappler");
-    if ((typeCounts["Wrestling"] || 0) >= 3) badges.push("Best Wrestler");
-    return badges;
-  }, [sessions]);
+  const currentUserBadges = useMemo(() => calculateBadges(sessions), [sessions]);
 
   const currentUserScore = avatar.cumulativePoints;
 
   // Level-up detection
   useEffect(() => {
-    if (!userId || sessions.length === 0) return;
+    if (!userId || sessions.length === 0 || !initialLoadRef.current) return;
     if (prevAvatarLevelRef.current !== undefined && prevAvatarLevelRef.current !== avatar.level) {
       const displayName = username || "Anonymous";
-      analytics.avatarLevelUp(avatar.level, avatar.cumulativePoints);
       db.addShoutboxMessage({ user_id: userId, type: "system", content: `${displayName} leveled up to ${avatar.level} 🎉` });
     }
     prevAvatarLevelRef.current = avatar.level;
@@ -143,33 +127,20 @@ export default function Home() {
     return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
   }, [userId, username, currentUserScore, currentUserBadges, upsertCurrentUser, fetchGroupMembers]);
 
-  // Points calculation helpers
-  const calculateWeeklyDiversityBonus = (existing: DbSession[], newSession: { date: string; type: string }) => {
-    const sessionDate = parseDateUTC(newSession.date);
-    const weekStart = new Date(Date.UTC(sessionDate.getUTCFullYear(), sessionDate.getUTCMonth(), sessionDate.getUTCDate() - sessionDate.getUTCDay()));
-    const weekEnd = new Date(weekStart); weekEnd.setUTCDate(weekStart.getUTCDate() + 7);
-    const weekSessions = [...existing.filter((s) => { const d = parseDateUTC(s.date); return d >= weekStart && d < weekEnd; }), newSession];
-    const extra = new Set(weekSessions.map((s) => s.type)).size - 1;
-    return extra <= 0 ? 0 : Math.min(extra * 0.5, 1.5);
-  };
-
-  const addSession = (session: Omit<DbSession, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+  const addSession = (session: { date: string; type: string; level: string }) => {
     if (!userId) return;
     const diversityBonus = calculateWeeklyDiversityBonus(sessions, session);
-    const points = (CLASS_LEVEL_MULTIPLIERS[session.level] || 1.0) + diversityBonus;
-    const data = db.addSession({ user_id: userId, ...session, points });
+    const points = calculateSessionPoints(session.level, diversityBonus);
+    const data = db.addSession({ user_id: userId, group_id: DEFAULT_GROUP_ID, ...session, points });
     setSessions((prev) => [data, ...prev]);
-    analytics.sessionLogged(session.type, session.level, points);
     const displayName = username || "Anonymous";
     db.addShoutboxMessage({ user_id: userId, type: "system", content: `${displayName} logged ${session.type} (${session.level}) 🥋` });
   };
 
   const deleteSession = (sessionId: string) => {
     if (!confirm("Are you sure you want to delete this session?")) return;
-    const s = sessions.find((x) => x.id === sessionId);
     db.deleteSession(sessionId);
     setSessions((prev) => prev.filter((x) => x.id !== sessionId));
-    if (s) analytics.sessionDeleted(s.type);
   };
 
   const handleOnboardingComplete = useCallback((newUsername: string) => {
@@ -185,10 +156,10 @@ export default function Home() {
         {(() => {
           switch (page) {
             case "home": return <HomePage avatar={avatar} sessions={sessions} />;
-            case "log": return <RequiresUsernameGate username={username}><LogSession onAddSession={addSession} /></RequiresUsernameGate>;
-            case "history": return <RequiresUsernameGate username={username}><HistoryPage sessions={sessions} onDelete={deleteSession} /></RequiresUsernameGate>;
-            case "avatar": return <RequiresUsernameGate username={username}><AvatarEvolutionPage avatar={avatar} /></RequiresUsernameGate>;
-            case "ranking": return <RequiresUsernameGate username={username}><GroupRankingPage groupMembers={groupMembers} userId={userId} username={username} currentUserScore={currentUserScore} currentUserBadges={currentUserBadges} onSelectUser={setSelectedUserId} /></RequiresUsernameGate>;
+            case "log": return <RequiresUsernameGate username={username} loading={authLoading}><LogSession onAddSession={addSession} /></RequiresUsernameGate>;
+            case "history": return <RequiresUsernameGate username={username} loading={authLoading}><HistoryPage sessions={sessions} onDelete={deleteSession} /></RequiresUsernameGate>;
+            case "avatar": return <RequiresUsernameGate username={username} loading={authLoading}><AvatarEvolutionPage avatar={avatar} /></RequiresUsernameGate>;
+            case "ranking": return <RequiresUsernameGate username={username} loading={authLoading}><GroupRankingPage groupMembers={groupMembers} userId={userId} username={username} currentUserScore={currentUserScore} currentUserBadges={currentUserBadges} onSelectUser={setSelectedUserId} /></RequiresUsernameGate>;
             case "profile": return <UserProfilePage selectedUserId={selectedUserId} groupMembers={groupMembers} username={username} />;
             case "sparring": return <SparringSessions userId={userId} username={username} />;
             default: return <HomePage avatar={avatar} sessions={sessions} />;
