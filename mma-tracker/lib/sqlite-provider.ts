@@ -30,26 +30,33 @@ export class SqliteProvider implements DataProvider {
     return () => { this.listeners[key]?.delete(fn); };
   }
 
-  async init() {
-    // Initial fetch to populate caches before polling starts
+  private _userId: string | null = null;
+
+  async init(userId: string) {
+    this._userId = userId;
     await Promise.all([
+      this._fetchSessions(userId),
       this._fetchShoutbox(30),
       this._fetchMembers(),
       this._fetchSparring(),
     ]);
     this._initialized = true;
-    // Poll: fetch from server, notify only if data actually changed
     this.pollInterval = setInterval(() => { this._poll(); }, 2000);
   }
 
   private _initialized = false;
 
   private async _poll() {
-    const [shoutbox, members, sparring] = await Promise.all([
+    const [sessions, shoutbox, members, sparring] = await Promise.all([
+      this._userId ? api<DbSession[]>(`/api/sessions?userId=${this._userId}`) : Promise.resolve(null),
       api<ShoutboxMessage[]>("/api/shoutbox?limit=30"),
       api<GroupMember[]>("/api/members"),
       api<SparringSession[]>("/api/sparring"),
     ]);
+    if (sessions && JSON.stringify(sessions) !== JSON.stringify(this._sessionCache)) {
+      this._sessionCache = sessions.map((r) => ({ ...r, group_id: "global" }));
+      this.notify(KEYS.SESSIONS);
+    }
     if (JSON.stringify(shoutbox) !== JSON.stringify(this._shoutboxCache)) {
       this._shoutboxCache = shoutbox;
       this.notify(KEYS.SHOUTBOX);
@@ -93,8 +100,7 @@ export class SqliteProvider implements DataProvider {
 
   // --- Sessions ---
   getSessions(userId: string): DbSession[] {
-    // Synchronous interface but we need async fetch — return cached, trigger refresh
-    this._fetchSessions(userId);
+    if (!this._initialized) this._fetchSessions(userId);
     return this._sessionCache;
   }
 
