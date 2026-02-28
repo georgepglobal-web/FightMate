@@ -354,16 +354,17 @@ describe('LocalStorageProvider', () => {
       expect(message.created_at).toBeDefined();
     });
 
-    it('getShoutboxMessages(limit) respects limit, returns newest first', async () => {
+    it('getShoutboxMessages(limit) respects limit, returns newest first', () => {
+      vi.useFakeTimers();
       for (let i = 1; i <= 5; i++) {
+        vi.setSystemTime(new Date(`2025-01-01T00:0${i}:00Z`));
         provider.addShoutboxMessage({
           user_id: 'user1',
           type: 'user',
           content: `Message ${i}`
         });
-        // Small delay to ensure different timestamps
-        await new Promise(resolve => setTimeout(resolve, 1));
       }
+      vi.useRealTimers();
       
       const messages = provider.getShoutboxMessages(3);
       expect(messages).toHaveLength(3);
