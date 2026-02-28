@@ -30,12 +30,38 @@ export class SqliteProvider implements DataProvider {
   }
 
   async init() {
-    // Start polling for shoutbox, members, sparring updates
-    this.pollInterval = setInterval(() => {
+    // Initial fetch to populate caches before polling starts
+    await Promise.all([
+      this._fetchShoutbox(30),
+      this._fetchMembers(),
+      this._fetchSparring(),
+    ]);
+    this._initialized = true;
+    // Poll: fetch from server, notify only if data actually changed
+    this.pollInterval = setInterval(() => { this._poll(); }, 2000);
+  }
+
+  private _initialized = false;
+
+  private async _poll() {
+    const [shoutbox, members, sparring] = await Promise.all([
+      api<ShoutboxMessage[]>("/api/shoutbox?limit=30"),
+      api<GroupMember[]>("/api/members"),
+      api<SparringSession[]>("/api/sparring"),
+    ]);
+    if (JSON.stringify(shoutbox) !== JSON.stringify(this._shoutboxCache)) {
+      this._shoutboxCache = shoutbox;
       this.notify(KEYS.SHOUTBOX);
+    }
+    if (JSON.stringify(members) !== JSON.stringify(this._membersRaw)) {
+      this._membersRaw = members;
+      this._membersCache = members.map((r) => ({ ...r, group_id: "global" }));
       this.notify(KEYS.MEMBERS);
+    }
+    if (JSON.stringify(sparring) !== JSON.stringify(this._sparringCache)) {
+      this._sparringCache = sparring;
       this.notify(KEYS.SPARRING);
-    }, 2000);
+    }
   }
 
   destroy() {
@@ -102,16 +128,18 @@ export class SqliteProvider implements DataProvider {
   private _membersCache: GroupMember[] = [];
 
   getMembers(): GroupMember[] {
-    this._fetchMembers();
+    if (!this._initialized) this._fetchMembers();
     return this._membersCache;
   }
 
+  private _membersRaw: unknown[] = [];
   private _membersFetching = false;
   private async _fetchMembers() {
     if (this._membersFetching) return;
     this._membersFetching = true;
     try {
       const rows = await api<GroupMember[]>("/api/members");
+      this._membersRaw = rows;
       this._membersCache = rows.map((r) => ({ ...r, group_id: "global" }));
     } finally { this._membersFetching = false; }
   }
@@ -136,7 +164,7 @@ export class SqliteProvider implements DataProvider {
   private _sparringCache: SparringSession[] = [];
 
   getSparringSessions(): SparringSession[] {
-    this._fetchSparring();
+    if (!this._initialized) this._fetchSparring();
     return this._sparringCache;
   }
 
@@ -167,7 +195,7 @@ export class SqliteProvider implements DataProvider {
   private _shoutboxCache: ShoutboxMessage[] = [];
 
   getShoutboxMessages(limit = 30): ShoutboxMessage[] {
-    this._fetchShoutbox(limit);
+    if (!this._initialized) this._fetchShoutbox(limit);
     return this._shoutboxCache;
   }
 

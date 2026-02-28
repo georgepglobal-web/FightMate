@@ -117,10 +117,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [avatar.level, avatar.cumulativePoints, userId, username, sessions.length]);
 
   // Shoutbox unread tracking
-  const lastShoutboxCountRef = useRef(db.getShoutboxMessages(30).length);
+  const lastShoutboxCountRef = useRef<number | null>(null);
   useEffect(() => {
     const unsub = db.subscribe(db.KEYS.SHOUTBOX, () => {
       const current = db.getShoutboxMessages(30).length;
+      if (lastShoutboxCountRef.current === null) {
+        // First load — seed the count, don't mark anything unread
+        lastShoutboxCountRef.current = current;
+        return;
+      }
       const diff = current - lastShoutboxCountRef.current;
       lastShoutboxCountRef.current = current;
       if (diff > 0 && !isChatOpen) setUnreadCount((p) => p + diff);
