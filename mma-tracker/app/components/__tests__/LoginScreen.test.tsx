@@ -26,11 +26,9 @@ describe('LoginScreen', () => {
   });
 
   it('shows validation for invalid username', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<LoginScreen />);
     fireEvent.change(screen.getByPlaceholderText(/Enter username/), { target: { value: 'a!' } });
     fireEvent.submit(screen.getByRole('button', { name: /Get Started/i }));
-    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('3-20 characters'));
-    alertSpy.mockRestore();
+    expect(screen.getByText(/3-20 characters/)).toBeInTheDocument();
   });
 });
