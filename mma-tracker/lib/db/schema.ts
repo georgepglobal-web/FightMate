@@ -9,7 +9,6 @@ export function getDb(): Database.Database {
   if (!_db) {
     _db = new Database(DB_PATH);
     _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
     _db.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -18,7 +17,7 @@ export function getDb(): Database.Database {
       );
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id),
+        user_id TEXT NOT NULL,
         date TEXT NOT NULL,
         type TEXT NOT NULL,
         level TEXT NOT NULL,
@@ -28,7 +27,7 @@ export function getDb(): Database.Database {
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
       CREATE TABLE IF NOT EXISTS group_members (
-        user_id TEXT PRIMARY KEY REFERENCES users(id),
+        user_id TEXT PRIMARY KEY,
         username TEXT,
         score REAL NOT NULL DEFAULT 0,
         badges TEXT NOT NULL DEFAULT '[]',

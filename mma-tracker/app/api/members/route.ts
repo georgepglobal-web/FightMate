@@ -4,13 +4,16 @@ import { getDb } from "@/lib/db/schema";
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
 
 export function GET() {
-  const db = getDb();
-  const rows = db.prepare("SELECT * FROM group_members").all() as Record<string, unknown>[];
-  return json(rows.map((r) => ({ ...r, badges: JSON.parse((r.badges as string) || "[]") })));
+  try {
+    const db = getDb();
+    const rows = db.prepare("SELECT * FROM group_members").all() as Record<string, unknown>[];
+    return json(rows.map((r) => ({ ...r, badges: JSON.parse((r.badges as string) || "[]") })));
+  } catch (e) { return json({ error: String(e) }, 500); }
 }
 
-export function POST(req: NextRequest) {
-  return req.json().then((body) => {
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
     const db = getDb();
     const badges = JSON.stringify(body.badges ?? []);
     db.prepare(
@@ -18,5 +21,5 @@ export function POST(req: NextRequest) {
        ON CONFLICT(user_id) DO UPDATE SET username=excluded.username, score=excluded.score, badges=excluded.badges, updated_at=datetime('now')`
     ).run(body.user_id, body.username, body.score ?? 0, badges);
     return json({ ok: true });
-  });
+  } catch (e) { return json({ error: String(e) }, 500); }
 }
