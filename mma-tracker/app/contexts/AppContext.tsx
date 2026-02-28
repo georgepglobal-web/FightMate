@@ -118,20 +118,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Shoutbox unread tracking
   const lastShoutboxCountRef = useRef<number | null>(null);
+  const isChatOpenRef = useRef(isChatOpen);
+  isChatOpenRef.current = isChatOpen;
+
   useEffect(() => {
+    // Seed on mount so we don't count existing messages as unread
+    if (lastShoutboxCountRef.current === null) {
+      lastShoutboxCountRef.current = db.getShoutboxMessages(30).length;
+    }
     const unsub = db.subscribe(db.KEYS.SHOUTBOX, () => {
       const current = db.getShoutboxMessages(30).length;
-      if (lastShoutboxCountRef.current === null) {
-        // First load — seed the count, don't mark anything unread
-        lastShoutboxCountRef.current = current;
-        return;
-      }
-      const diff = current - lastShoutboxCountRef.current;
+      const prev = lastShoutboxCountRef.current ?? current;
+      const diff = current - prev;
       lastShoutboxCountRef.current = current;
-      if (diff > 0 && !isChatOpen) setUnreadCount((p) => p + diff);
+      if (diff > 0 && !isChatOpenRef.current) setUnreadCount((p) => p + diff);
     });
     return unsub;
-  }, [isChatOpen]);
+  }, []); // stable — no deps, uses refs for isChatOpen
 
   useEffect(() => { if (isChatOpen) setUnreadCount(0); }, [isChatOpen]);
 
