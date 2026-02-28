@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  getSparringSessions,
-  addSparringSession,
-  updateSparringSession,
-  addShoutboxMessage,
-  subscribe,
-  KEYS,
-  type SparringSession as SparringSessionType,
-} from "@/lib/store";
+import { db, type SparringSession as SparringSessionType } from "@/lib/data";
 
 interface SparringSessionProps {
   userId: string;
@@ -27,13 +19,13 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
   const [notes, setNotes] = useState("");
 
   const fetchSessions = useCallback(() => {
-    setSparringSessions(getSparringSessions());
+    setSparringSessions(db.getSparringSessions());
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchSessions();
-    return subscribe(KEYS.SPARRING, fetchSessions);
+    return db.subscribe(db.KEYS.SPARRING, fetchSessions);
   }, [fetchSessions]);
 
   const handleCreateSession = (e: React.FormEvent) => {
@@ -42,20 +34,20 @@ export default function SparringSessions({ userId, username }: SparringSessionPr
     if (!date || !time || !location) return alert("Please fill in all required fields");
 
     setIsSubmitting(true);
-    addSparringSession({ creator_id: userId, opponent_id: null, date, time, location, notes: notes || null, status: "open" });
-    addShoutboxMessage({ user_id: userId, type: "system", content: `${username} is looking for a sparring partner on ${date}! 🥊` });
+    db.addSparringSession({ creator_id: userId, opponent_id: null, date, time, location, notes: notes || null, status: "open" });
+    db.addShoutboxMessage({ user_id: userId, type: "system", content: `${username} is looking for a sparring partner on ${date}! 🥊` });
     setDate(""); setTime(""); setLocation(""); setNotes("");
     setIsSubmitting(false);
   };
 
   const handleAcceptSession = (sessionId: string) => {
     if (!username) return alert("Set a username first.");
-    updateSparringSession(sessionId, { opponent_id: userId, status: "accepted" });
+    db.updateSparringSession(sessionId, { opponent_id: userId, status: "accepted" });
   };
 
   const handleCancelSession = (sessionId: string) => {
     if (!confirm("Cancel this sparring request?")) return;
-    updateSparringSession(sessionId, { status: "cancelled" });
+    db.updateSparringSession(sessionId, { status: "cancelled" });
   };
 
   const openSessions = sparringSessions.filter((s) => s.status === "open");

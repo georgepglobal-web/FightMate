@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getShoutboxMessages,
-  addShoutboxMessage,
-  getMemberUsername,
-  subscribe,
-  KEYS,
-  type ShoutboxMessage,
-} from "../../lib/store";
+import { db, type ShoutboxMessage } from "../../lib/data";
 
 interface ShoutboxMessageWithName extends ShoutboxMessage {
   displayName: string;
@@ -42,10 +35,10 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
   };
 
   const fetchMessages = useCallback(() => {
-    const raw = getShoutboxMessages(30);
+    const raw = db.getShoutboxMessages(30);
     const mapped: ShoutboxMessageWithName[] = raw.map((m) => ({
       ...m,
-      displayName: getMemberUsername(m.user_id) || (m.user_id === userId ? username || "You" : "Anonymous"),
+      displayName: db.getMemberUsername(m.user_id) || (m.user_id === userId ? username || "You" : "Anonymous"),
     }));
     setMessages(mapped);
     onNewMessages?.(mapped);
@@ -53,7 +46,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
 
   useEffect(() => {
     fetchMessages();
-    const unsub = subscribe(KEYS.SHOUTBOX, fetchMessages);
+    const unsub = db.subscribe(db.KEYS.SHOUTBOX, fetchMessages);
     return unsub;
   }, [fetchMessages]);
 
@@ -71,7 +64,7 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
     lastPostTsRef.current = t;
 
     setPosting(true);
-    addShoutboxMessage({ user_id: userId, type: "user", content: trimmed });
+    db.addShoutboxMessage({ user_id: userId, type: "user", content: trimmed });
     setInput("");
     setPosting(false);
   };

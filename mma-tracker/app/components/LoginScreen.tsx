@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { setUser as storeSetUser } from "../../lib/store";
+import { db } from "../../lib/data";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
@@ -15,7 +15,7 @@ export default function LoginScreen() {
       return;
     }
     const id = crypto.randomUUID();
-    storeSetUser({ id, username: trimmed });
+    db.setUser({ id, username: trimmed });
     window.location.reload();
   };
 
