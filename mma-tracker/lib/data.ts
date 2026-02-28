@@ -5,11 +5,16 @@ import type { DataProvider } from "./data-provider";
 import { LocalStorageProvider } from "./local-provider";
 
 function createProvider(): DataProvider {
-  if (process.env.NEXT_PUBLIC_DATA_PROVIDER === "supabase") {
-    // Dynamic import would be cleaner but we need sync export.
+  const mode = process.env.NEXT_PUBLIC_DATA_PROVIDER;
+  if (mode === "supabase") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { SupabaseProvider } = require("./supabase-provider");
     return new SupabaseProvider();
+  }
+  if (mode === "sqlite") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { SqliteProvider } = require("./sqlite-provider");
+    return new SqliteProvider();
   }
   return new LocalStorageProvider();
 }
