@@ -19,6 +19,8 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
   const [posting, setPosting] = useState(false);
   const lastPostTsRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const onNewMessagesRef = useRef(onNewMessages);
+  onNewMessagesRef.current = onNewMessages;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,8 +43,8 @@ export default function Shoutbox({ userId, username, onNewMessages }: ShoutboxPr
       displayName: db.getMemberUsername(m.user_id) || (m.user_id === userId ? username || "You" : "Anonymous"),
     }));
     setMessages(mapped);
-    onNewMessages?.(mapped);
-  }, [userId, username, onNewMessages]);
+    onNewMessagesRef.current?.(mapped);
+  }, [userId, username]);
 
   useEffect(() => {
     fetchMessages();

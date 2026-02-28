@@ -5,7 +5,7 @@ import { usePage } from "../contexts/PageContext";
 import { SESSION_TYPES, CLASS_LEVELS, DEFAULT_GROUP_ID, normalizeDateToISO } from "@/lib/constants";
 import type { DbSession } from "@/lib/data";
 
-export default function LogSession({ onAddSession }: { onAddSession: (session: Omit<DbSession, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => void }) {
+export default function LogSession({ onAddSession }: { onAddSession: (session: { date: string; type: string; level: string }) => void }) {
   const { setCurrentPage: setPage } = usePage();
   const [date, setDate] = useState("");
   const [type, setType] = useState(SESSION_TYPES[0]);
@@ -16,7 +16,7 @@ export default function LogSession({ onAddSession }: { onAddSession: (session: O
     e.preventDefault();
     if (!date) { alert("Please select a date"); return; }
     setIsSubmitting(true);
-    onAddSession({ date: normalizeDateToISO(date), type, level, group_id: DEFAULT_GROUP_ID, points: 0 });
+    onAddSession({ date: normalizeDateToISO(date), type, level });
     setDate(""); setType(SESSION_TYPES[0]); setLevel(CLASS_LEVELS[0]);
     setIsSubmitting(false);
     setPage("history");

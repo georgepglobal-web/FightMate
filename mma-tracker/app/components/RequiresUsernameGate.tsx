@@ -2,8 +2,19 @@
 
 import { usePage } from "../contexts/PageContext";
 
-export default function RequiresUsernameGate({ username, children }: { username: string | null; children: React.ReactNode }) {
+export default function RequiresUsernameGate({ username, loading, children }: { username: string | null; loading?: boolean; children: React.ReactNode }) {
   const { setCurrentPage: setPage } = usePage();
+
+  if (loading) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-black dark:via-purple-950 dark:to-black">
+        <div className="max-w-4xl mx-auto mt-20 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white/70 text-sm sm:text-base">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!username) {
     return (
