@@ -15,6 +15,7 @@ export default function LogSession({ onAddSession }: { onAddSession: (session: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) { setError("Please select a date"); return; }
+    if (date > new Date().toISOString().split("T")[0]) { setError("Cannot log a session in the future"); return; }
     setError("");
     setIsSubmitting(true);
     onAddSession({ date: normalizeDateToISO(date), type, level });

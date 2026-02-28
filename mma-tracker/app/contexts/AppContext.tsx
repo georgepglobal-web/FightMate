@@ -163,15 +163,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const diversityBonus = calculateWeeklyDiversityBonus(sessions, session);
     const points = calculateSessionPoints(session.level, diversityBonus);
-    const data = db.addSession({ user_id: userId, group_id: DEFAULT_GROUP_ID, ...session, points });
-    setSessions((prev) => [data, ...prev]);
+    db.addSession({ user_id: userId, group_id: DEFAULT_GROUP_ID, ...session, points });
     const displayName = username || "Anonymous";
     db.addShoutboxMessage({ user_id: userId, type: "system", content: `${displayName} logged ${session.type} (${session.level}) 🥋` });
   };
 
   const deleteSession = (sessionId: string) => {
     db.deleteSession(sessionId);
-    setSessions((prev) => prev.filter((x) => x.id !== sessionId));
   };
 
   const handleOnboardingComplete = useCallback((newUsername: string) => {
