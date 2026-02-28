@@ -49,6 +49,10 @@ export interface LocalUser {
 }
 
 export interface DataProvider {
+  // Lifecycle
+  init?(userId: string): Promise<void>;
+  destroy?(): void;
+
   // Auth
   getUser(): LocalUser | null;
   setUser(user: LocalUser): void;

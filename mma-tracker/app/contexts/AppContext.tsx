@@ -63,8 +63,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initialLoadRef.current = true;
   }, [userId, authLoading]);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
-
   const initializeUser = useCallback((uid: string) => {
     if (!uid) return;
     const name = db.getMemberUsername(uid);
@@ -93,7 +91,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId || authLoading) return;
     initializeUser(userId);
-    fetchGroupMembers();
+    db.init?.(userId).then(() => {
+      fetchSessions();
+      fetchGroupMembers();
+    }).catch(() => {
+      // Supabase unavailable — local data still works
+      fetchSessions();
+      fetchGroupMembers();
+    });
+    return () => { db.destroy?.(); };
   }, [userId, authLoading, initializeUser, fetchGroupMembers]);
 
   const avatar = useMemo(() => deriveAvatarFromSessions(sessions), [sessions]);

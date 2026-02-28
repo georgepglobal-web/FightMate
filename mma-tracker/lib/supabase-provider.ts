@@ -1,6 +1,6 @@
 // Supabase implementation of DataProvider
 // Reads from localStorage cache, writes to both localStorage and Supabase.
-// Call `init()` once on app load to hydrate the cache from Supabase.
+// Call `init(userId)` once after auth to hydrate the cache from Supabase.
 
 import { supabase } from "./supabase";
 import { LocalStorageProvider } from "./local-provider";
@@ -12,25 +12,60 @@ import type {
   ShoutboxMessage,
   LocalUser,
 } from "./data-provider";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
-// Delegate all sync reads to the local provider (acts as cache)
 const local = new LocalStorageProvider();
 
 export class SupabaseProvider implements DataProvider {
   readonly KEYS = local.KEYS;
+  private channel: RealtimeChannel | null = null;
 
   subscribe(key: string, fn: () => void) { return local.subscribe(key, fn); }
 
-  // --- Auth (Supabase auth + local cache) ---
+  // --- Lifecycle ---
+
+  async init(userId: string) {
+    const [sessions, members, shoutbox, sparring] = await Promise.all([
+      supabase.from("sessions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabase.from("group_members").select("*"),
+      supabase.from("shoutbox_messages").select("*").order("created_at", { ascending: false }).limit(50),
+      supabase.from("sparring_sessions").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    if (sessions.data) local.hydrate(this.KEYS.SESSIONS, sessions.data);
+    if (members.data) local.hydrate(this.KEYS.MEMBERS, members.data);
+    if (shoutbox.data) local.hydrate(this.KEYS.SHOUTBOX, shoutbox.data);
+    if (sparring.data) local.hydrate(this.KEYS.SPARRING, sparring.data);
+
+    // Realtime subscriptions
+    this.channel = supabase.channel("app-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "shoutbox_messages" }, (payload) => {
+        local.mergeRecord(this.KEYS.SHOUTBOX, payload.new as ShoutboxMessage);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, (payload) => {
+        local.mergeRecord(this.KEYS.MEMBERS, payload.new as GroupMember, "user_id");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sparring_sessions" }, (payload) => {
+        local.mergeRecord(this.KEYS.SPARRING, payload.new as SparringSession);
+      })
+      .subscribe();
+  }
+
+  destroy() {
+    if (this.channel) {
+      supabase.removeChannel(this.channel);
+      this.channel = null;
+    }
+  }
+
+  // --- Auth ---
 
   getUser(): LocalUser | null { return local.getUser(); }
 
-  setUser(user: LocalUser) {
-    local.setUser(user);
-    // Supabase auth is handled separately via AuthGate
-  }
+  setUser(user: LocalUser) { local.setUser(user); }
 
   signOut() {
+    this.destroy();
     local.signOut();
     supabase.auth.signOut().catch(() => {});
   }

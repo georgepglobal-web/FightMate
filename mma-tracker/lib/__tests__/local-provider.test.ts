@@ -285,7 +285,9 @@ describe('LocalStorageProvider', () => {
       expect(session.updated_at).toBeDefined();
     });
 
-    it('updateSparringSession() updates fields and updated_at', async () => {
+    it('updateSparringSession() updates fields and updated_at', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-01T00:00:00Z'));
       const session = provider.addSparringSession({
         creator_id: 'user1',
         date: '2024-01-01',
@@ -293,21 +295,18 @@ describe('LocalStorageProvider', () => {
         location: 'Gym A',
         status: 'open'
       });
-      
-      const originalUpdatedAt = session.updated_at;
-      
-      // Small delay to ensure different timestamp
-      await new Promise(resolve => setTimeout(resolve, 1));
-      
+
+      vi.setSystemTime(new Date('2025-01-01T00:01:00Z'));
       provider.updateSparringSession(session.id, {
         status: 'accepted',
         opponent_id: 'user2'
       });
-      
+
       const sessions = provider.getSparringSessions();
       expect(sessions[0].status).toBe('accepted');
       expect(sessions[0].opponent_id).toBe('user2');
-      expect(sessions[0].updated_at).not.toBe(originalUpdatedAt);
+      expect(sessions[0].updated_at).not.toBe(session.updated_at);
+      vi.useRealTimers();
     });
 
     it('updateSparringSession() with non-existent id is a no-op', () => {

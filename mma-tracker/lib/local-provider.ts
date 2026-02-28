@@ -159,4 +159,21 @@ export class LocalStorageProvider implements DataProvider {
     notify(KEYS.SHOUTBOX);
     return m;
   }
+
+  // --- Cache helpers (used by SupabaseProvider for hydration/realtime) ---
+
+  hydrate(key: string, data: unknown[]) {
+    set(key, data);
+    notify(key);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mergeRecord(key: string, record: any, idField = "id") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all = get<any[]>(key, []);
+    const idx = all.findIndex((r) => r[idField] === record[idField]);
+    if (idx >= 0) all[idx] = record; else all.push(record);
+    set(key, all);
+    notify(key);
+  }
 }
