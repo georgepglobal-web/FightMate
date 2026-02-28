@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const db = getDb();
-    const id = crypto.randomUUID();
+    const id = body.id || crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare(
       "INSERT INTO sessions (id, user_id, date, type, level, points, diversity_bonus, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"

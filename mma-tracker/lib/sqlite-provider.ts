@@ -118,10 +118,12 @@ export class SqliteProvider implements DataProvider {
   }
 
   addSession(session: Omit<DbSession, "id" | "created_at" | "updated_at">): DbSession {
-    const temp: DbSession = { ...session, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const temp: DbSession = { ...session, id, created_at: now, updated_at: now };
     this._sessionCache = [temp, ...this._sessionCache];
     this.notify(KEYS.SESSIONS);
-    postJson("/api/sessions", session).then(() => this._fetchSessions(session.user_id));
+    postJson("/api/sessions", { ...session, id });
     return temp;
   }
 
