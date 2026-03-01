@@ -18,6 +18,6 @@ export async function POST(req: NextRequest) {
     const id = body.id || crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare("INSERT INTO shoutbox_messages (id, user_id, type, content, created_at) VALUES (?, ?, ?, ?, ?)").run(id, body.user_id, body.type || "user", body.content, now);
-    return json({ id, ...body, created_at: now });
+    return json({ id, user_id: body.user_id, type: body.type || "user", content: body.content, created_at: now });
   } catch (e) { return json({ error: String(e) }, 500); }
 }
