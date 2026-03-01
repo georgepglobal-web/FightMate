@@ -64,10 +64,10 @@ export class SupabaseProvider implements DataProvider {
 
   setUser(user: LocalUser) { local.setUser(user); }
 
-  signOut() {
+  async signOut() {
     this.destroy();
     local.signOut();
-    supabase.auth.signOut().catch(() => {});
+    await supabase.auth.signOut().catch(() => {});
   }
 
   // --- Sessions ---
