@@ -1,4 +1,4 @@
-// SQLite-backed DataProvider — calls Next.js API routes, polls for updates
+// SQLite-backed DataProvider — uses SSE for shoutbox, fetch-on-mutate for everything else
 
 import type { DataProvider, DbSession, GroupMember, ShoutboxMessage, SparringSession, LocalUser } from "./data-provider";
 
@@ -19,8 +19,10 @@ function postJson(path: string, body: unknown) {
 export class SqliteProvider implements DataProvider {
   readonly KEYS = KEYS;
   private listeners: Record<string, Set<Listener>> = {};
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private eventSource: EventSource | null = null;
   private localUser: LocalUser | null = null;
+  private _userId: string | null = null;
+  private _initialized = false;
 
   private notify(key: string) { this.listeners[key]?.forEach((fn) => fn()); }
 
@@ -29,8 +31,6 @@ export class SqliteProvider implements DataProvider {
     this.listeners[key].add(fn);
     return () => { this.listeners[key]?.delete(fn); };
   }
-
-  private _userId: string | null = null;
 
   async init(userId: string) {
     this._userId = userId;
@@ -41,42 +41,30 @@ export class SqliteProvider implements DataProvider {
       this._fetchSparring(),
     ]);
     this._initialized = true;
-    this.pollInterval = setInterval(() => { this._poll(); }, 2000);
+    this._connectSSE();
   }
 
-  private _initialized = false;
-
-  private async _poll() {
-    const [sessions, shoutbox, members, sparring] = await Promise.all([
-      this._userId ? api<DbSession[]>(`/api/sessions?userId=${this._userId}`) : Promise.resolve(null),
-      api<ShoutboxMessage[]>("/api/shoutbox?limit=30"),
-      api<GroupMember[]>("/api/members"),
-      api<SparringSession[]>("/api/sparring"),
-    ]);
-    if (sessions && JSON.stringify(sessions) !== JSON.stringify(this._sessionCache)) {
-      this._sessionCache = sessions.map((r) => ({ ...r, group_id: "global" }));
-      this.notify(KEYS.SESSIONS);
-    }
-    if (JSON.stringify(shoutbox) !== JSON.stringify(this._shoutboxCache)) {
-      this._shoutboxCache = shoutbox;
-      this.notify(KEYS.SHOUTBOX);
-    }
-    if (JSON.stringify(members) !== JSON.stringify(this._membersRaw)) {
-      this._membersRaw = members;
-      this._membersCache = members.map((r) => ({ ...r, group_id: "global" }));
-      this.notify(KEYS.MEMBERS);
-    }
-    if (JSON.stringify(sparring) !== JSON.stringify(this._sparringCache)) {
-      this._sparringCache = sparring;
-      this.notify(KEYS.SPARRING);
-    }
+  private _connectSSE() {
+    if (typeof EventSource === "undefined") return;
+    // Pass the last known message ID so the SSE stream only sends newer messages
+    const lastId = this._shoutboxCache.length > 0 ? this._shoutboxCache[0].id : "";
+    this.eventSource = new EventSource(`/api/shoutbox/stream?after=${encodeURIComponent(lastId)}`);
+    this.eventSource.onmessage = (e) => {
+      try {
+        const msg: ShoutboxMessage = JSON.parse(e.data);
+        if (!this._shoutboxCache.some((m) => m.id === msg.id)) {
+          this._shoutboxCache = [msg, ...this._shoutboxCache];
+          this.notify(KEYS.SHOUTBOX);
+        }
+      } catch { /* ignore malformed */ }
+    };
   }
 
   destroy() {
-    if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
+    if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
   }
 
-  // --- Auth (user stored in localStorage for session persistence) ---
+  // --- Auth ---
   getUser(): LocalUser | null {
     if (this.localUser) return this.localUser;
     if (typeof window === "undefined") return null;
@@ -99,13 +87,13 @@ export class SqliteProvider implements DataProvider {
   }
 
   // --- Sessions ---
+  private _sessionCache: DbSession[] = [];
+  private _sessionFetching = false;
+
   getSessions(userId: string): DbSession[] {
     if (!this._initialized) this._fetchSessions(userId);
     return this._sessionCache;
   }
-
-  private _sessionCache: DbSession[] = [];
-  private _sessionFetching = false;
 
   private async _fetchSessions(userId: string) {
     if (this._sessionFetching) return;
@@ -123,26 +111,30 @@ export class SqliteProvider implements DataProvider {
     const temp: DbSession = { ...session, id, created_at: now, updated_at: now };
     this._sessionCache = [temp, ...this._sessionCache];
     this.notify(KEYS.SESSIONS);
-    postJson("/api/sessions", { ...session, id });
+    postJson("/api/sessions", { ...session, id }).then(() => {
+      if (this._userId) this._fetchSessions(this._userId);
+    });
     return temp;
   }
 
   deleteSession(sessionId: string) {
     this._sessionCache = this._sessionCache.filter((s) => s.id !== sessionId);
     this.notify(KEYS.SESSIONS);
-    fetch(`/api/sessions?id=${sessionId}`, { method: "DELETE" });
+    fetch(`/api/sessions?id=${sessionId}`, { method: "DELETE" }).then(() => {
+      if (this._userId) this._fetchSessions(this._userId);
+    });
   }
 
   // --- Members ---
   private _membersCache: GroupMember[] = [];
+  private _membersRaw: unknown[] = [];
+  private _membersFetching = false;
 
   getMembers(): GroupMember[] {
     if (!this._initialized) this._fetchMembers();
     return this._membersCache;
   }
 
-  private _membersRaw: unknown[] = [];
-  private _membersFetching = false;
   private async _fetchMembers() {
     if (this._membersFetching) return;
     this._membersFetching = true;
@@ -150,6 +142,7 @@ export class SqliteProvider implements DataProvider {
       const rows = await api<GroupMember[]>("/api/members");
       this._membersRaw = rows;
       this._membersCache = rows.map((r) => ({ ...r, group_id: "global" }));
+      this.notify(KEYS.MEMBERS);
     } finally { this._membersFetching = false; }
   }
 
@@ -158,7 +151,7 @@ export class SqliteProvider implements DataProvider {
     const full: GroupMember = { user_id: member.user_id, group_id: "global", username: member.username ?? null, score: member.score ?? 0, badges: member.badges ?? [], updated_at: new Date().toISOString() };
     if (idx >= 0) this._membersCache[idx] = { ...this._membersCache[idx], ...full };
     else this._membersCache.push(full);
-    postJson("/api/members", full);
+    postJson("/api/members", full).then(() => this._fetchMembers());
   }
 
   getMemberUsername(userId: string): string | null {
@@ -171,27 +164,27 @@ export class SqliteProvider implements DataProvider {
 
   // --- Sparring ---
   private _sparringCache: SparringSession[] = [];
+  private _sparringFetching = false;
 
   getSparringSessions(): SparringSession[] {
     if (!this._initialized) this._fetchSparring();
     return this._sparringCache;
   }
 
-  private _sparringFetching = false;
   private async _fetchSparring() {
     if (this._sparringFetching) return;
     this._sparringFetching = true;
-    try { this._sparringCache = await api<SparringSession[]>("/api/sparring"); }
-    finally { this._sparringFetching = false; }
+    try {
+      this._sparringCache = await api<SparringSession[]>("/api/sparring");
+      this.notify(KEYS.SPARRING);
+    } finally { this._sparringFetching = false; }
   }
 
   addSparringSession(session: Omit<SparringSession, "id" | "created_at" | "updated_at">): SparringSession {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const temp: SparringSession = { ...session, id, created_at: now, updated_at: now };
+    const temp: SparringSession = { ...session, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     this._sparringCache = [temp, ...this._sparringCache];
     this.notify(KEYS.SPARRING);
-    postJson("/api/sparring", { ...session, id });
+    postJson("/api/sparring", session).then(() => this._fetchSparring());
     return temp;
   }
 
@@ -199,18 +192,18 @@ export class SqliteProvider implements DataProvider {
     const idx = this._sparringCache.findIndex((s) => s.id === id);
     if (idx >= 0) this._sparringCache[idx] = { ...this._sparringCache[idx], ...updates };
     this.notify(KEYS.SPARRING);
-    fetch("/api/sparring", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...updates }) });
+    fetch("/api/sparring", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...updates }) }).then(() => this._fetchSparring());
   }
 
   // --- Shoutbox ---
   private _shoutboxCache: ShoutboxMessage[] = [];
+  private _shoutboxFetching = false;
 
   getShoutboxMessages(limit = 30): ShoutboxMessage[] {
     if (!this._initialized) this._fetchShoutbox(limit);
     return this._shoutboxCache;
   }
 
-  private _shoutboxFetching = false;
   private async _fetchShoutbox(limit: number) {
     if (this._shoutboxFetching) return;
     this._shoutboxFetching = true;
@@ -219,11 +212,10 @@ export class SqliteProvider implements DataProvider {
   }
 
   addShoutboxMessage(msg: Omit<ShoutboxMessage, "id" | "created_at">): ShoutboxMessage {
-    const id = crypto.randomUUID();
-    const temp: ShoutboxMessage = { ...msg, id, created_at: new Date().toISOString() };
+    const temp: ShoutboxMessage = { ...msg, id: crypto.randomUUID(), created_at: new Date().toISOString() };
     this._shoutboxCache = [temp, ...this._shoutboxCache];
     this.notify(KEYS.SHOUTBOX);
-    postJson("/api/shoutbox", { ...msg, id });
+    postJson("/api/shoutbox", { ...msg, id: temp.id });
     return temp;
   }
 }

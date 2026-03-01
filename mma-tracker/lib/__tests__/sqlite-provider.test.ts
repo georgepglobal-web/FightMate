@@ -5,6 +5,21 @@ import { SqliteProvider } from '../sqlite-provider';
 const fetchMock = vi.fn();
 global.fetch = fetchMock;
 
+// Mock EventSource
+class MockEventSource {
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+  close() { this.closed = true; }
+  // Simulate receiving a message
+  _emit(data: unknown) { this.onmessage?.({ data: JSON.stringify(data) }); }
+}
+
+let lastEventSource: MockEventSource | null = null;
+(global as unknown as Record<string, unknown>).EventSource = class extends MockEventSource {
+  constructor() { super(); lastEventSource = this; }
+};
+
 function mockFetchResponse(data: unknown) {
   return Promise.resolve({ text: () => Promise.resolve(JSON.stringify(data)) });
 }
@@ -23,8 +38,8 @@ describe('SqliteProvider', () => {
   let provider: SqliteProvider;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     mockLocalStorage();
+    lastEventSource = null;
     fetchMock.mockReset();
     fetchMock.mockImplementation((url: string) => {
       if (url.includes('/api/sessions')) return mockFetchResponse([]);
@@ -39,7 +54,6 @@ describe('SqliteProvider', () => {
 
   afterEach(() => {
     provider.destroy();
-    vi.useRealTimers();
   });
 
   describe('Auth', () => {
@@ -54,7 +68,6 @@ describe('SqliteProvider', () => {
 
     it('setUser persists to localStorage', () => {
       provider.setUser({ id: 'u1', username: 'fighter' });
-      expect(localStorage.getItem('fm-sqlite-user')).toBeTruthy();
       const stored = JSON.parse(localStorage.getItem('fm-sqlite-user')!);
       expect(stored.username).toBe('fighter');
     });
@@ -81,7 +94,7 @@ describe('SqliteProvider', () => {
     });
   });
 
-  describe('init and polling', () => {
+  describe('init and SSE', () => {
     it('init fetches all 4 endpoints', async () => {
       await provider.init('u1');
       const urls = fetchMock.mock.calls.map((c: unknown[]) => c[0] as string);
@@ -91,30 +104,44 @@ describe('SqliteProvider', () => {
       expect(urls.some((u: string) => u.includes('/api/sparring'))).toBe(true);
     });
 
-    it('starts polling after init', async () => {
+    it('opens EventSource after init', async () => {
       await provider.init('u1');
-      const callsBefore = fetchMock.mock.calls.length;
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore);
+      expect(lastEventSource).not.toBeNull();
+      expect(lastEventSource!.closed).toBe(false);
     });
 
-    it('polls all 4 endpoints each cycle', async () => {
+    it('does not poll — no fetches after init without mutations', async () => {
+      vi.useFakeTimers();
       await provider.init('u1');
       fetchMock.mockClear();
-      await vi.advanceTimersByTimeAsync(2000);
-      const urls = fetchMock.mock.calls.map((c: unknown[]) => c[0] as string);
-      expect(urls.filter((u: string) => u.includes('/api/sessions'))).toHaveLength(1);
-      expect(urls.filter((u: string) => u.includes('/api/shoutbox'))).toHaveLength(1);
-      expect(urls.filter((u: string) => u.includes('/api/members'))).toHaveLength(1);
-      expect(urls.filter((u: string) => u.includes('/api/sparring'))).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(10000);
+      // Only fetches should be from init, none from polling
+      expect(fetchMock.mock.calls.length).toBe(0);
+      vi.useRealTimers();
     });
 
-    it('destroy stops polling', async () => {
+    it('SSE message notifies SHOUTBOX subscribers', async () => {
+      await provider.init('u1');
+      const listener = vi.fn();
+      provider.subscribe(provider.KEYS.SHOUTBOX, listener);
+      lastEventSource!._emit({ id: 'sse1', user_id: 'u2', type: 'user', content: 'Hello via SSE', created_at: new Date().toISOString() });
+      expect(listener).toHaveBeenCalled();
+      expect(provider.getShoutboxMessages()).toHaveLength(1);
+      expect(provider.getShoutboxMessages()[0].content).toBe('Hello via SSE');
+    });
+
+    it('SSE deduplicates messages already in cache', async () => {
+      await provider.init('u1');
+      const msg = provider.addShoutboxMessage({ user_id: 'u1', type: 'user', content: 'local' });
+      // SSE delivers the same message back
+      lastEventSource!._emit({ id: msg.id, user_id: 'u1', type: 'user', content: 'local', created_at: msg.created_at });
+      expect(provider.getShoutboxMessages().filter(m => m.id === msg.id)).toHaveLength(1);
+    });
+
+    it('destroy closes EventSource', async () => {
       await provider.init('u1');
       provider.destroy();
-      fetchMock.mockClear();
-      await vi.advanceTimersByTimeAsync(4000);
-      expect(fetchMock.mock.calls.length).toBe(0);
+      expect(lastEventSource!.closed).toBe(true);
     });
   });
 
@@ -168,18 +195,6 @@ describe('SqliteProvider', () => {
       fetchMock.mockClear();
       provider.deleteSession(s.id);
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/sessions?id='), expect.objectContaining({ method: 'DELETE' }));
-    });
-
-    it('poll notifies SESSIONS when data changes', async () => {
-      await provider.init('u1');
-      const listener = vi.fn();
-      provider.subscribe(provider.KEYS.SESSIONS, listener);
-      fetchMock.mockImplementation((url: string) => {
-        if (url.includes('/api/sessions')) return mockFetchResponse([{ id: 'new', user_id: 'u1', date: '2025-02-01', type: 'Muay Thai', level: 'Basic', points: 5, created_at: '', updated_at: '' }]);
-        return mockFetchResponse([]);
-      });
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(listener).toHaveBeenCalled();
     });
   });
 
@@ -285,18 +300,6 @@ describe('SqliteProvider', () => {
       provider.addShoutboxMessage({ user_id: 'u1', type: 'user', content: 'Hello!' });
       expect(fetchMock).toHaveBeenCalledWith('/api/shoutbox', expect.objectContaining({ method: 'POST' }));
     });
-
-    it('poll notifies SHOUTBOX when new messages arrive', async () => {
-      await provider.init('u1');
-      const listener = vi.fn();
-      provider.subscribe(provider.KEYS.SHOUTBOX, listener);
-      fetchMock.mockImplementation((url: string) => {
-        if (url.includes('/api/shoutbox')) return mockFetchResponse([{ id: 'ext1', user_id: 'u2', type: 'user', content: 'Hey', created_at: new Date().toISOString() }]);
-        return mockFetchResponse([]);
-      });
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(listener).toHaveBeenCalled();
-    });
   });
 
   describe('Subscriptions', () => {
@@ -318,18 +321,6 @@ describe('SqliteProvider', () => {
       provider.addShoutboxMessage({ user_id: 'u1', type: 'user', content: 'test' });
       expect(l1).toHaveBeenCalled();
       expect(l2).toHaveBeenCalled();
-    });
-
-    it('poll does not notify when data has not changed', async () => {
-      await provider.init('u1');
-      const listener = vi.fn();
-      provider.subscribe(provider.KEYS.SESSIONS, listener);
-      provider.subscribe(provider.KEYS.SHOUTBOX, listener);
-      provider.subscribe(provider.KEYS.MEMBERS, listener);
-      provider.subscribe(provider.KEYS.SPARRING, listener);
-      // Poll returns same empty data as init
-      await vi.advanceTimersByTimeAsync(2000);
-      expect(listener).not.toHaveBeenCalled();
     });
   });
 });

@@ -92,6 +92,20 @@ npm run e2e       # Cypress headless
 npm run e2e:open  # Cypress interactive
 ```
 
-## Deployment
+## Deployment (Vercel + Supabase)
 
-Deployed on Vercel. Standard Next.js build — no special configuration needed.
+1. Set environment variables in Vercel project settings:
+
+   | Variable | Value |
+   |---|---|
+   | `NEXT_PUBLIC_DATA_PROVIDER` | `supabase` |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+
+   > `NEXT_PUBLIC_` vars are inlined at build time — redeploy after changing them.
+
+2. Run the database migrations in Supabase Dashboard → SQL Editor:
+
+   Paste and run `supabase/migrations/00000000_all_tables.sql` — this creates all tables, RLS policies, indexes, triggers, and enables realtime. It's idempotent (safe to run multiple times).
+
+3. Deploy / redeploy on Vercel.
