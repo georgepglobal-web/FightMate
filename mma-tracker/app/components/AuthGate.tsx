@@ -1,13 +1,13 @@
+"use client";
+
 import React, { useEffect } from "react";
 import LoginScreen from "./LoginScreen";
-import { supabase } from "../../lib/supabase";
+import { db } from "../../lib/data";
+
+const isSupabase = process.env.NEXT_PUBLIC_DATA_PROVIDER === "supabase";
 
 export default function AuthGate({
-  userId,
-  setUserId,
-  authLoading,
-  setAuthLoading,
-  children,
+  userId, setUserId, authLoading, setAuthLoading, children,
 }: {
   userId: string;
   setUserId: React.Dispatch<React.SetStateAction<string>>;
@@ -16,41 +16,41 @@ export default function AuthGate({
   children: React.ReactNode;
 }) {
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Check if session already exists
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (!isSupabase) {
+      const user = db.getUser();
+      if (user) setUserId(user.id);
+      setAuthLoading(false);
+      return;
+    }
 
-        if (sessionError) {
-          console.error("Error getting session:", sessionError);
-        }
-
-        if (session?.user) {
-          // Reuse existing session
-          console.log("Using existing Supabase auth session:", session.user.id);
-          setUserId(session.user.id);
-        }
-      } catch (e) {
-        console.error("Error initializing authentication:", e);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Supabase auth: check session
+    let mounted = true;
+    (async () => {
+      const { supabase } = await import("../../lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
       if (session?.user) {
-        setUserId(session.user.id);
-      } else {
-        setUserId("");
+        const uid = session.user.id;
+        // Ensure local cache has user
+        const existing = db.getUser();
+        if (!existing || existing.id !== uid) {
+          db.setUser({ id: uid, username: session.user.email?.split("@")[0] || "fighter" });
+        }
+        setUserId(uid);
       }
-    });
+      setAuthLoading(false);
 
-    return () => {
-      subscription.unsubscribe();
-    };
+      // Listen for auth changes (sign in/out from other tabs)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setUserId(session.user.id);
+        } else {
+          setUserId("");
+        }
+      });
+      return () => { subscription.unsubscribe(); };
+    })();
+    return () => { mounted = false; };
   }, [setUserId, setAuthLoading]);
 
   if (authLoading) {
@@ -61,9 +61,7 @@ export default function AuthGate({
     );
   }
 
-  if (!userId) {
-    return <LoginScreen />;
-  }
+  if (!userId) return <LoginScreen />;
 
   return <>{children}</>;
 }

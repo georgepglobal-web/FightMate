@@ -1,17 +1,14 @@
 "use client";
 
-import { PageProvider } from "../contexts/PageContext";
-import Navigation from "./Navigation";
+import { AppProvider } from "../contexts/AppContext";
+import ErrorBoundary from "./ErrorBoundary";
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <PageProvider>
-      <Navigation />
-      <main>{children}</main>
-    </PageProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <main>{children}</main>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
