@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "e2e": "cypress run",
-    "e2e:open": "cypress open"
+    "e2e:open": "cypress open",
+    "e2e:prod": "CYPRESS_BASE_URL=https://mma-liart.vercel.app cypress run --spec cypress/e2e/production.cy.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",

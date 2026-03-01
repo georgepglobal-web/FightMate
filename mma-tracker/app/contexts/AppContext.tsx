@@ -54,8 +54,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevAvatarLevelRef = useRef<Avatar["level"] | undefined>(undefined);
   const initialLoadRef = useRef(false);
 
-  const handleSignOut = () => {
-    db.signOut();
+  const handleSignOut = async () => {
+    await db.signOut();
     if (typeof window !== "undefined") window.location.reload();
   };
 

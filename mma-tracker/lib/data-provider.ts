@@ -56,7 +56,7 @@ export interface DataProvider {
   // Auth
   getUser(): LocalUser | null;
   setUser(user: LocalUser): void;
-  signOut(): void;
+  signOut(): void | Promise<void>;
 
   // Sessions
   getSessions(userId: string): DbSession[];
