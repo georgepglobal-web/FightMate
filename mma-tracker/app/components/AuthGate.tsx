@@ -66,23 +66,25 @@ export default function AuthGate({
         const uid = session.user.id;
         const existing = db.getUser();
         if (existing && existing.id === uid && existing.username) {
-          // Already has a chosen username
           setUserId(uid);
         } else {
-          // Authenticated but no username chosen yet
-          setUserId(uid);
-          setNeedsUsername(true);
+          // Check if username exists in Supabase group_members
+          const { data: member } = await supabase.from("group_members").select("username").eq("user_id", uid).maybeSingle();
+          if (member?.username) {
+            db.setUser({ id: uid, username: member.username });
+            setUserId(uid);
+          } else {
+            setUserId(uid);
+            setNeedsUsername(true);
+          }
         }
       }
       setAuthLoading(false);
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          setUserId(session.user.id);
-          const existing = db.getUser();
-          if (!existing || existing.id !== session.user.id || !existing.username) {
-            setNeedsUsername(true);
-          }
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+        if (sess?.user) {
+          setUserId(sess.user.id);
+          // Username check handled by initial load above
         } else {
           setUserId("");
           setNeedsUsername(false);
